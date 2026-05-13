@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>there.fm | Collaborating</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --void: #070708; --abyss: #0c0c0e; --depth: #121216; --surface: #1a1a20;
@@ -12,335 +12,294 @@
   --ash: #b8b0a4; --dust: #8a8278; --shadow: #5a544e; --crimson: #c45c5c;
   --crimson-glow: rgba(196,92,92,0.12); --gold: #b8a070; --gold-glow: rgba(184,160,112,0.15);
   --silver: #8a9098; --ghost: rgba(232,228,220,0.04); --glass: rgba(18,18,22,0.88);
-  --blur: blur(20px) saturate(140%); --ease: cubic-bezier(0.16,1,0.3,1);
-  --r-md: 10px; --r-lg: 16px; --r-xl: 24px;
+  --blur: blur(24px) saturate(160%); --ease: cubic-bezier(0.16,1,0.3,1);
 }
+
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 body { font-family:'Inter',sans-serif; background:var(--void); color:var(--bone); overflow:hidden; height:100vh; }
 
-/* Background */
-.void { position:fixed; inset:0; z-index:0; }
-.orb { position:absolute; border-radius:50%; filter:blur(80px); opacity:.12; animation:orbFloat 20s infinite; }
-.orb:nth-child(1){width:400px;height:400px;background:var(--crimson);top:10%;left:15%;}
-@keyframes orbFloat { 0%,100%{transform:translate(0,0)} 50%{transform:translate(30px,-30px)} }
+/* Background Motion */
+.void-bg { position:fixed; inset:0; z-index:0; pointer-events:none; }
+.orb { position:absolute; border-radius:50%; filter:blur(100px); opacity:.15; animation:orbMove 25s infinite alternate ease-in-out; }
+.orb-1 { width:600px; height:600px; background:var(--crimson); top:-10%; left:-10%; }
+.orb-2 { width:500px; height:500px; background:var(--gold); bottom:-5%; right:-5%; animation-delay:-5s; }
+@keyframes orbMove { 0% { transform: translate(0,0) scale(1); } 100% { transform: translate(50px, 80px) scale(1.1); } }
 
-/* Scenes */
-.scene { position:fixed; inset:0; z-index:10; display:none; opacity:0; transition:opacity .5s; }
-.scene.active { display:flex; opacity:1; flex-direction:column; }
+/* Scene Management */
+.scene { position:fixed; inset:0; z-index:10; display:none; opacity:0; transition: opacity 0.8s var(--ease); }
+.scene.active { display:flex; opacity:1; }
 
-/* Auth */
-.auth-scene { justify-content:center; align-items:center; }
-.auth-card { background:var(--glass); backdrop-filter:var(--blur); padding:2.5rem; border-radius:var(--r-xl); border:1px solid var(--ghost); width:90%; max-width:400px; }
-.auth-brand h1 { font-family:'Cinzel',serif; text-align:center; letter-spacing:4px; margin-bottom:2rem; }
+/* Auth UI (Clean & Sophisticated) */
+.auth-scene { justify-content:center; align-items:center; background: radial-gradient(circle at center, #121216 0%, #070708 100%); }
+.auth-card { background:var(--glass); backdrop-filter:var(--blur); padding:3rem; border-radius:32px; border:1px solid var(--ghost); width:90%; max-width:420px; text-align:center; transform:translateY(20px); animation:cardIn 1s var(--ease) forwards; }
+@keyframes cardIn { to { transform:translateY(0); } }
+.brand h1 { font-family:'Cinzel',serif; letter-spacing:8px; font-size:1.5rem; margin-bottom:2rem; color:var(--bone); }
 
-/* Room Layout */
-.room-header { padding:1rem; display:flex; justify-content:space-between; background:var(--glass); backdrop-filter:var(--blur); border-bottom:1px solid var(--ghost); z-index:100; }
-.canvas-wrap { flex:1; position:relative; overflow:hidden; }
-.items { position:absolute; inset:0; }
+/* Room UI */
+.room-header { position:fixed; top:0; left:0; right:0; height:70px; display:flex; align-items:center; justify-content:space-between; padding:0 2rem; background:var(--glass); backdrop-filter:var(--blur); border-bottom:1px solid var(--ghost); z-index:1000; }
+.nav-btns { display:flex; gap:12px; }
+.btn-icon { background:var(--surface); border:1px solid var(--ridge); color:var(--ash); padding:8px 16px; border-radius:12px; cursor:pointer; font-size:13px; transition:0.3s var(--ease); }
+.btn-icon:hover { background:var(--ridge); color:var(--bone); border-color:var(--crimson); }
 
-/* Draggable & Resizable */
-.draggable { 
-    position:absolute; background:var(--glass); border:1px solid var(--ghost); border-radius:var(--r-md); 
-    min-width:100px; min-height:100px; touch-action:none; 
-}
-.resizer {
-    position: absolute; width: 15px; height: 15px; background: var(--crimson);
-    right: 0; bottom: 0; cursor: nwse-resize; border-radius: 50% 0 0 0;
-}
+/* Canvas & Draggables */
+.canvas { flex:1; position:relative; overflow:hidden; cursor: crosshair; }
+.draggable { position:absolute; min-width:150px; background:var(--glass); border:1px solid var(--ghost); border-radius:16px; backdrop-filter:var(--blur); overflow:hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.4); touch-action:none; }
+.drag-header { padding:8px 12px; display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.03); cursor:move; font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--dust); }
+.btn-close { cursor:pointer; color:var(--crimson); font-size:18px; border:none; background:none; }
+.resizer { position:absolute; width:16px; height:16px; bottom:0; right:0; cursor:nwse-resize; background: linear-gradient(135deg, transparent 50%, var(--crimson) 50%); }
 
-/* Avatar */
-.avatar { 
-    position:absolute; width:60px; height:60px; border-radius:50%; background:var(--crimson);
-    display:flex; justify-content:center; align-items:center; font-family:'Cinzel',serif;
-    border:2px solid var(--bone); z-index:1000; cursor:grab;
-}
-.avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+/* Avatar & Bubbles */
+.avatar-wrap { position:absolute; width:80px; text-align:center; transition: transform 0.1s linear; z-index:999; }
+.avatar-circle { width:60px; height:60px; border-radius:50%; background:var(--crimson); margin:0 auto; border:2px solid var(--bone); overflow:hidden; display:flex; align-items:center; justify-content:center; box-shadow:0 0 20px var(--crimson-glow); }
+.avatar-circle img { width:100%; height:100%; object-fit:cover; }
+.chat-bubble { position:absolute; bottom:70px; left:50%; transform:translateX(-50%); background:var(--bone); color:var(--void); padding:8px 16px; border-radius:18px; font-size:13px; font-weight:500; opacity:0; pointer-events:none; transition:0.3s var(--ease); min-width:80px; }
+.chat-bubble.show { opacity:1; transform:translateX(-50%) translateY(-10px); }
 
-/* Form Elements */
-input { width:100%; padding:.8rem; margin-bottom:1rem; background:var(--abyss); border:1px solid var(--ridge); color:white; border-radius:var(--r-md); }
-.btn { padding:.8rem 1.5rem; border:none; border-radius:var(--r-md); cursor:pointer; font-weight:600; transition: .3s; }
-.btn-primary { background:var(--crimson); color:white; width:100%; }
+/* Bottom Bar */
+.bottom-bar { position:fixed; bottom:30px; left:50%; transform:translateX(-50%); width:90%; max-width:600px; display:flex; gap:12px; z-index:1000; }
+.msg-input { flex:1; background:var(--glass); backdrop-filter:var(--blur); border:1px solid var(--ghost); padding:14px 24px; border-radius:100px; color:white; outline:none; }
 
-/* UI Overlay */
-.msg-input-wrap { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); z-index:2000; display:flex; gap:10px; width:90%; max-width:500px; }
-.participants { position:fixed; right:20px; top:80px; background:var(--glass); padding:1rem; border-radius:var(--r-md); }
+/* YouTube Sync UI */
+.yt-controls { display:flex; justify-content:space-around; background:var(--abyss); padding:8px; gap:4px; }
+.yt-btn { background:var(--surface); border:none; color:var(--ash); font-size:10px; padding:6px; border-radius:4px; cursor:pointer; flex:1; }
 
-/* YouTube Sync Controls */
-.yt-controls { display:flex; gap:5px; padding:5px; background:var(--abyss); justify-content:center; }
-.yt-controls button { background:var(--ridge); color:white; border:none; padding:4px 8px; font-size:10px; cursor:pointer; }
+input[type="file"] { display: none; }
 </style>
 </head>
 <body>
 
-<div class="void"><div class="orb"></div></div>
+<div class="void-bg">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+</div>
 
 <div class="scene auth-scene active" id="authScene">
     <div class="auth-card">
-        <div class="auth-brand"><h1>there.fm</h1></div>
-        <input type="email" id="authEmail" placeholder="Email">
-        <input type="password" id="authPass" placeholder="Senha">
-        <button class="btn btn-primary" onclick="handleAuth()">Entrar / Criar</button>
+        <div class="brand"><h1>there.fm</h1></div>
+        <input type="text" id="userNameInput" placeholder="Seu Nome" style="width:100%; padding:14px; margin-bottom:12px; border-radius:12px; border:1px solid var(--ridge); background:var(--abyss); color:white;">
+        <button class="btn-icon" style="width:100%; padding:14px; background:var(--crimson); color:white; border:none;" onclick="login()">Entrar</button>
     </div>
 </div>
 
-<div class="scene auth-scene" id="landingScene">
+<div class="scene auth-scene" id="dashScene">
     <div class="auth-card">
-        <h2>Bem-vindo</h2>
-        <p id="welcomeMsg" style="margin-bottom:1rem"></p>
-        <button class="btn btn-primary" onclick="createNewRoom()">Criar Nova Sala</button>
-        <button class="btn" style="color:var(--ash)" onclick="openSettings()">Configurações de Perfil</button>
-        <button class="btn" style="color:red" onclick="logout()">Sair</button>
+        <div class="brand"><h1>there.fm</h1></div>
+        <p id="welcomeMsg" style="margin-bottom:20px; color:var(--ash)"></p>
+        <button class="btn-icon" style="width:100%; margin-bottom:10px" onclick="startRoom()">Criar Sala</button>
+        <button class="btn-icon" style="width:100%; margin-bottom:10px" onclick="document.getElementById('profileFile').click()">Mudar Foto</button>
+        <button class="btn-icon" style="width:100%; color:var(--crimson)" onclick="location.reload()">Sair</button>
+        <input type="file" id="profileFile" accept="image/*" onchange="updateProfilePic(this)">
     </div>
 </div>
 
-<div class="scene room-scene" id="roomScene">
+<div class="scene" id="roomScene" style="flex-direction:column">
     <div class="room-header">
-        <div><span id="roomTitle">Sala</span> | <small id="roomCode"></small></div>
-        <div>
-            <button onclick="openImagePicker()">+ Imagem</button>
-            <button onclick="openGifModal()">+ GIF</button>
-            <button onclick="openVideoModal()">+ YouTube</button>
-            <button onclick="leaveRoom()">Sair</button>
+        <div style="font-family:'Cinzel'; letter-spacing:2px">there.fm</div>
+        <div class="nav-btns">
+            <button class="btn-icon" onclick="document.getElementById('galeryFile').click()">+ Foto</button>
+            <button class="btn-icon" onclick="addGif()">+ GIF</button>
+            <button class="btn-icon" onclick="addYoutube()">+ Video</button>
+            <button class="btn-icon" style="border-color:var(--crimson)" onclick="exitRoom()">Sair</button>
         </div>
     </div>
-    <div class="canvas-wrap" id="canvasWrap">
-        <div class="items" id="items"></div>
-    </div>
-    <div class="msg-input-wrap">
-        <input type="text" id="msgInput" placeholder="Conversar...">
-        <button class="btn btn-primary" style="width:auto" onclick="sendMsg()">Enviar</button>
-    </div>
-</div>
 
-<div class="scene auth-scene" id="settingsModal" style="background:rgba(0,0,0,0.8)">
-    <div class="auth-card">
-        <h3>Editar Perfil</h3>
-        <label>Mudar Nome:</label>
-        <input type="text" id="editName">
-        <label>Mudar Foto (Galeria):</label>
-        <input type="file" id="editPhoto" accept="image/*" onchange="updateProfilePhoto(this)">
-        <button class="btn btn-primary" onclick="closeSettings()">Salvar e Voltar</button>
+    <div class="canvas" id="canvas">
+        </div>
+
+    <div class="bottom-bar">
+        <input type="text" id="chatInput" class="msg-input" placeholder="Escreva algo...">
+        <button class="btn-icon" style="background:var(--crimson); color:white; border:none; border-radius:100px; padding:0 25px;" onclick="sendChat()">Enviar</button>
     </div>
 </div>
 
-<script id="youtube-api" src="https://www.youtube.com/iframe_api"></script>
+<input type="file" id="galeryFile" accept="image/*" onchange="addImage(this)">
 
+<script src="https://www.youtube.com/iframe_api"></script>
 <script>
-/* --- STATE --- */
-let currentUser = { name: "User", photo: null, id: Date.now() };
-let currentRoom = null;
-let ytPlayers = {}; // Para controlar múltiplos vídeos sincronizados
+let user = { name: "", photo: null, x: 500, y: 500 };
+let players = {};
 
-/* --- AUTH & PROFILE --- */
-function handleAuth() {
-    currentUser.name = document.getElementById('authEmail').value.split('@')[0] || "User";
-    document.getElementById('welcomeMsg').innerText = "Olá, " + currentUser.name;
-    document.getElementById('editName').value = currentUser.name;
-    showScene('landingScene');
+/* --- AUTH --- */
+function login() {
+    const name = document.getElementById('userNameInput').value;
+    if(!name) return;
+    user.name = name;
+    document.getElementById('welcomeMsg').innerText = `Bem-vindo, ${name}`;
+    switchScene('dashScene');
 }
 
-function openSettings() { showScene('settingsModal'); }
-function closeSettings() { 
-    currentUser.name = document.getElementById('editName').value;
-    updateMyAvatarUI();
-    showScene('landingScene'); 
+function updateProfilePic(input) {
+    const reader = new FileReader();
+    reader.onload = e => { user.photo = e.target.result; alert("Foto atualizada!"); };
+    reader.readAsDataURL(input.files[0]);
 }
 
-function updateProfilePhoto(input) {
-    const file = input.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => { currentUser.photo = e.target.result; };
-        reader.readAsDataURL(file);
-    }
+function startRoom() {
+    switchScene('roomScene');
+    spawnUser();
 }
 
-function showScene(id) {
+function switchScene(id) {
     document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
 
-/* --- ROOM LOGIC --- */
-function createNewRoom() {
-    currentRoom = "ROOM-" + Math.floor(Math.random()*9999);
-    document.getElementById('roomTitle').innerText = "Minha Sala";
-    document.getElementById('roomCode').innerText = currentRoom;
-    showScene('roomScene');
-    spawnAvatar(currentUser);
+/* --- AVATAR & CHAT --- */
+function spawnUser() {
+    const wrap = document.createElement('div');
+    wrap.className = 'avatar-wrap';
+    wrap.id = 'myAvatar';
+    wrap.style.left = user.x + 'px';
+    wrap.style.top = user.y + 'px';
+    
+    const circle = document.createElement('div');
+    circle.className = 'avatar-circle';
+    circle.innerHTML = user.photo ? `<img src="${user.photo}">` : user.name[0];
+    
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    bubble.id = 'myBubble';
+    
+    wrap.appendChild(bubble);
+    wrap.appendChild(circle);
+    document.getElementById('canvas').appendChild(wrap);
+    makeDraggable(wrap, true);
 }
 
-function spawnAvatar(user) {
-    const div = document.createElement('div');
-    div.className = "avatar";
-    div.id = "user-" + user.id;
-    updateAvatarContent(div, user);
-    makeDraggable(div);
-    document.getElementById('items').appendChild(div);
+function sendChat() {
+    const input = document.getElementById('chatInput');
+    const bubble = document.getElementById('myBubble');
+    if(!input.value) return;
+    
+    bubble.innerText = input.value;
+    bubble.classList.add('show');
+    input.value = "";
+    setTimeout(() => bubble.classList.remove('show'), 3000);
 }
 
-function updateMyAvatarUI() {
-    const av = document.getElementById("user-" + currentUser.id);
-    if(av) updateAvatarContent(av, currentUser);
+/* --- ADD MEDIA --- */
+function addImage(input) {
+    const reader = new FileReader();
+    reader.onload = e => createBox('IMAGEM', `<img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">`);
+    reader.readAsDataURL(input.files[0]);
 }
 
-function updateAvatarContent(el, user) {
-    if(user.photo) el.innerHTML = `<img src="${user.photo}">`;
-    else el.innerText = user.name[0].toUpperCase();
-}
-
-/* --- ADICIONAR IMAGEM DA GALERIA --- */
-function openImagePicker() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = e => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = event => { createMediaElement('image', event.target.result); };
-        reader.readAsDataURL(file);
-    };
-    input.click();
-}
-
-/* --- TENOR GIF FIX --- */
-async function openGifModal() {
-    const query = prompt("Pesquisar GIF:");
-    if(!query) return;
-    // API Key pública de exemplo (Tenor V2)
-    const url = `https://tenor.googleapis.com/v2/search?q=${query}&key=LIVDSRZULELA&limit=1`;
+async function addGif() {
+    const q = prompt("Qual GIF você quer?");
+    if(!q) return;
     try {
-        const res = await fetch(url);
+        const res = await fetch(`https://tenor.googleapis.com/v2/search?q=${q}&key=LIVDSRZULELA&limit=1`);
         const data = await res.json();
-        if(data.results.length > 0) {
-            createMediaElement('gif', data.results[0].media_formats.tinygif.url);
-        }
-    } catch(e) { alert("Erro ao carregar Tenor"); }
+        const url = data.results[0].media_formats.tinygif.url;
+        createBox('GIF', `<img src="${url}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;">`);
+    } catch(e) { alert("GIF não encontrado"); }
 }
 
-/* --- DRAG & RESIZE (TOUCH COMPATIBLE) --- */
-function makeDraggable(el) {
-    let isDragging = false;
-    let isResizing = false;
-    let startX, startY, startW, startH, startLeft, startTop;
-
-    // Adicionar alça de redimensionamento
-    if(!el.classList.contains('avatar')) {
-        const resizer = document.createElement('div');
-        resizer.className = 'resizer';
-        el.appendChild(resizer);
-        
-        resizer.addEventListener('mousedown', initResize);
-        resizer.addEventListener('touchstart', initResize);
-    }
-
-    el.addEventListener('mousedown', initDrag);
-    el.addEventListener('touchstart', initDrag);
-
-    function initDrag(e) {
-        if(e.target.classList.contains('resizer')) return;
-        isDragging = true;
-        const t = e.type === 'touchstart' ? e.touches[0] : e;
-        startX = t.clientX - el.offsetLeft;
-        startY = t.clientY - el.offsetTop;
-        document.addEventListener('mousemove', doDrag);
-        document.addEventListener('touchmove', doDrag, {passive:false});
-        document.addEventListener('mouseup', stopDrag);
-        document.addEventListener('touchend', stopDrag);
-    }
-
-    function doDrag(e) {
-        if(!isDragging) return;
-        e.preventDefault();
-        const t = e.type === 'touchmove' ? e.touches[0] : e;
-        el.style.left = (t.clientX - startX) + 'px';
-        el.style.top = (t.clientY - startY) + 'px';
-    }
-
-    function initResize(e) {
-        isResizing = true;
-        const t = e.type === 'touchstart' ? e.touches[0] : e;
-        startW = el.offsetWidth;
-        startH = el.offsetHeight;
-        startX = t.clientX;
-        startY = t.clientY;
-        document.addEventListener('mousemove', doResize);
-        document.addEventListener('touchmove', doResize, {passive:false});
-        document.addEventListener('mouseup', stopResize);
-        document.addEventListener('touchend', stopResize);
-    }
-
-    function doResize(e) {
-        if(!isResizing) return;
-        const t = e.type === 'touchmove' ? e.touches[0] : e;
-        el.style.width = (startW + (t.clientX - startX)) + 'px';
-        el.style.height = (startH + (t.clientY - startY)) + 'px';
-    }
-
-    function stopDrag() { isDragging = false; }
-    function stopResize() { isResizing = false; }
-}
-
-/* --- YOUTUBE SYNC LOGIC --- */
-function openVideoModal() {
+function addYoutube() {
     const url = prompt("Link do YouTube:");
     if(!url) return;
     const id = url.match(/(?:v=|\/embed\/|youtu.be\/)([^&?/\s]+)/)[1];
-    createMediaElement('youtube', id);
-}
-
-function createMediaElement(type, content) {
-    const container = document.createElement('div');
-    container.className = "draggable";
-    container.style.left = "100px";
-    container.style.top = "100px";
-    container.style.width = "300px";
+    const pid = "p" + Date.now();
     
-    if(type === 'image' || type === 'gif') {
-        container.innerHTML = `<img src="${content}" style="width:100%; height:100%; border-radius:8px; object-fit:cover">`;
-    } else if(type === 'youtube') {
-        const playerDivId = "player-" + Date.now();
-        container.style.height = "200px";
-        container.innerHTML = `
-            <div id="${playerDivId}" style="width:100%; height:80%"></div>
-            <div class="yt-controls">
-                <button onclick="syncYT('${playerDivId}', 'play')">PLAY</button>
-                <button onclick="syncYT('${playerDivId}', 'pause')">PAUSE</button>
-                <button onclick="syncYT('${playerDivId}', 'back')">-10s</button>
-                <button onclick="syncYT('${playerDivId}', 'forward')">+10s</button>
-            </div>
-        `;
-        setTimeout(() => {
-            ytPlayers[playerDivId] = new YT.Player(playerDivId, {
-                videoId: content,
-                playerVars: { 'autoplay': 0, 'controls': 0 }
-            });
-        }, 500);
-    }
+    const html = `
+        <div id="${pid}" style="width:100%; height:150px"></div>
+        <div class="yt-controls">
+            <button class="yt-btn" onclick="syncVideo('${pid}','play')">PLAY</button>
+            <button class="yt-btn" onclick="syncVideo('${pid}','pause')">PAUSE</button>
+            <button class="yt-btn" onclick="syncVideo('${pid}','rewind')">-10s</button>
+        </div>
+    `;
+    createBox('YOUTUBE', html, pid, id);
+}
+
+function createBox(label, content, pid, vidId) {
+    const box = document.createElement('div');
+    box.className = 'draggable';
+    box.style.left = '100px';
+    box.style.top = '100px';
+    box.style.width = '250px';
     
-    makeDraggable(container);
-    document.getElementById('items').appendChild(container);
-}
-
-// Esta função simula o que seria enviado via Socket para todos os usuários
-function syncYT(playerId, action) {
-    const player = ytPlayers[playerId];
-    if(!player) return;
-
-    switch(action) {
-        case 'play': player.playVideo(); break;
-        case 'pause': player.pauseVideo(); break;
-        case 'back': player.seekTo(player.getCurrentTime() - 10); break;
-        case 'forward': player.seekTo(player.getCurrentTime() + 10); break;
+    box.innerHTML = `
+        <div class="drag-header">
+            <span>${label}</span>
+            <button class="btn-close" onclick="this.closest('.draggable').remove()">&times;</button>
+        </div>
+        <div class="drag-body" style="width:100%; height:calc(100% - 30px)">${content}</div>
+        <div class="resizer"></div>
+    `;
+    
+    document.getElementById('canvas').appendChild(box);
+    makeDraggable(box);
+    
+    if(pid) {
+        players[pid] = new YT.Player(pid, { videoId: vidId, playerVars: { controls: 0 } });
     }
-    // Em um sistema real, você enviaria: emit('sync_video', {playerId, action, time: player.getCurrentTime()})
 }
 
-function sendMsg() {
-    const input = document.getElementById('msgInput');
-    if(!input.value) return;
-    alert("Você disse: " + input.value); // Placeholder para o chat
-    input.value = "";
+function syncVideo(pid, action) {
+    const p = players[pid];
+    if(action === 'play') p.playVideo();
+    if(action === 'pause') p.pauseVideo();
+    if(action === 'rewind') p.seekTo(p.getCurrentTime() - 10);
 }
+
+/* --- MOTION & DRAG ENGINE --- */
+function makeDraggable(el, isAvatar = false) {
+    let x = 0, y = 0, startX = 0, startY = 0;
+    const header = isAvatar ? el : el.querySelector('.drag-header');
+    const resizer = el.querySelector('.resizer');
+
+    header.addEventListener('mousedown', dragStart);
+    header.addEventListener('touchstart', dragStart, {passive: false});
+
+    if(resizer) {
+        resizer.addEventListener('mousedown', initResize);
+        resizer.addEventListener('touchstart', initResize, {passive: false});
+    }
+
+    function dragStart(e) {
+        const t = e.type === 'touchstart' ? e.touches[0] : e;
+        startX = t.clientX - el.offsetLeft;
+        startY = t.clientY - el.offsetTop;
+        document.onmousemove = dragMove;
+        document.ontouchmove = dragMove;
+        document.onmouseup = dragEnd;
+        document.ontouchend = dragEnd;
+    }
+
+    function dragMove(e) {
+        e.preventDefault();
+        const t = e.type === 'touchmove' ? e.touches[0] : e;
+        el.style.left = (t.clientX - startX) + "px";
+        el.style.top = (t.clientY - startY) + "px";
+    }
+
+    function dragEnd() {
+        document.onmousemove = null; document.ontouchmove = null;
+    }
+
+    function initResize(e) {
+        e.stopPropagation();
+        const t = e.type === 'touchstart' ? e.touches[0] : e;
+        startX = t.clientX;
+        startY = t.clientY;
+        const startW = el.offsetWidth;
+        const startH = el.offsetHeight;
+
+        function doResize(e) {
+            const t = e.type === 'touchmove' ? e.touches[0] : e;
+            el.style.width = (startW + (t.clientX - startX)) + "px";
+            el.style.height = (startH + (t.clientY - startY)) + "px";
+        }
+        function stopResize() { document.onmousemove = null; document.ontouchmove = null; }
+        document.onmousemove = doResize;
+        document.ontouchmove = doResize;
+        document.onmouseup = stopResize;
+        document.ontouchend = stopResize;
+    }
+}
+
+function exitRoom() { switchScene('dashScene'); document.getElementById('canvas').innerHTML = ""; }
 </script>
 </body>
 </html>
