@@ -1,1530 +1,706 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>there.fm - Salas Compartilhadas</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital@0;1&family=Bodoni+Moda:opsz@6..96&display=swap">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-
-        :root {
-            --dark: #0a0a0a;
-            --darker: #050505;
-            --gold: #d4af37;
-            --silver: #c0c0c0;
-            --red: #8b0000;
-            --purple: #4a0e4e;
-            --text: #e8e8e8;
-            --text-dim: #a0a0a0;
-            --border: rgba(212, 175, 55, 0.3);
-        }
-
-        body {
-            font-family: 'Crimson Text', serif;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #0f0505 100%);
-            color: var(--text);
-            min-height: 100vh;
-            overflow: hidden;
-            background-attachment: fixed;
-        }
-
-        /* Textura de fundo medieval */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: 
-                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(212, 175, 55, 0.02) 2px, rgba(212, 175, 55, 0.02) 4px),
-                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(212, 175, 55, 0.02) 2px, rgba(212, 175, 55, 0.02) 4px);
-            pointer-events: none;
-            z-index: -1;
-        }
-
-        /* Landing */
-        .landing {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 2rem;
-            text-align: center;
-            animation: fadeIn 0.8s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .landing-content {
-            max-width: 700px;
-            z-index: 10;
-        }
-
-        .landing h1 {
-            font-family: 'Bodoni Moda', serif;
-            font-size: 5rem;
-            margin-bottom: 1rem;
-            color: var(--gold);
-            text-shadow: 0 0 30px rgba(212, 175, 55, 0.5);
-            letter-spacing: 3px;
-            font-weight: 700;
-        }
-
-        .landing p {
-            font-size: 1.2rem;
-            color: var(--text-dim);
-            margin-bottom: 2rem;
-            line-height: 1.8;
-            font-style: italic;
-        }
-
-        .landing .buttons {
-            display: flex;
-            gap: 1.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 3rem;
-        }
-
-        .btn {
-            padding: 1rem 2.5rem;
-            border: 2px solid var(--gold);
-            border-radius: 2px;
-            font-family: 'Crimson Text', serif;
-            font-weight: 700;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
-
-        .btn-primary {
-            background: var(--gold);
-            color: var(--dark);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 20px 40px rgba(212, 175, 55, 0.4);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: var(--gold);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(212, 175, 55, 0.1);
-            transform: translateY(-3px);
-        }
-
-        .input-group {
-            margin: 2rem 0;
-            display: flex;
-            gap: 1rem;
-            max-width: 500px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .input-group input {
-            flex: 1;
-            padding: 1rem;
-            background: rgba(10, 10, 10, 0.8);
-            border: 2px solid var(--gold);
-            border-radius: 2px;
-            color: var(--text);
-            font-family: 'Crimson Text', serif;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .input-group input:focus {
-            outline: none;
-            box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
-            background: rgba(10, 10, 10, 0.9);
-        }
-
-        .input-group button {
-            padding: 1rem 2rem;
-        }
-
-        /* Room Container */
-        .room-container {
-            display: none;
-            flex-direction: column;
-            height: 100vh;
-            position: relative;
-        }
-
-        .room-container.active {
-            display: flex;
-        }
-
-        /* Header */
-        .room-header {
-            padding: 1rem 2rem;
-            background: rgba(10, 10, 10, 0.9);
-            border-bottom: 2px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 50;
-            backdrop-filter: blur(10px);
-        }
-
-        .room-title {
-            font-family: 'Bodoni Moda', serif;
-            font-size: 1.8rem;
-            color: var(--gold);
-            font-weight: 700;
-            letter-spacing: 2px;
-        }
-
-        .room-code {
-            background: rgba(212, 175, 55, 0.1);
-            padding: 0.6rem 1.2rem;
-            border: 1px solid var(--border);
-            border-radius: 2px;
-            font-size: 0.85rem;
-            font-family: 'Crimson Text', serif;
-            margin-left: 2rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: var(--gold);
-            letter-spacing: 1px;
-        }
-
-        .room-code:hover {
-            background: rgba(212, 175, 55, 0.2);
-        }
-
-        .room-actions {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .room-actions button {
-            padding: 0.6rem 1.5rem;
-            background: transparent;
-            border: 2px solid var(--gold);
-            color: var(--gold);
-            border-radius: 2px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            font-family: 'Crimson Text', serif;
-            font-size: 0.95rem;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .room-actions button:hover {
-            background: var(--gold);
-            color: var(--dark);
-            transform: translateY(-2px);
-        }
-
-        /* Toolbar */
-        .toolbar {
-            padding: 1.5rem 2rem;
-            background: rgba(10, 10, 10, 0.8);
-            border-bottom: 2px solid var(--border);
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
-            flex-wrap: wrap;
-            z-index: 40;
-            overflow-y: auto;
-            max-height: 120px;
-        }
-
-        .toolbar-group {
-            display: flex;
-            gap: 0.8rem;
-            align-items: center;
-        }
-
-        .toolbar-label {
-            color: var(--gold);
-            font-size: 0.9rem;
-            font-weight: 700;
-            margin-right: 0.5rem;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .tool-btn {
-            padding: 0.7rem 1.2rem;
-            background: transparent;
-            border: 2px solid var(--gold);
-            color: var(--gold);
-            border-radius: 2px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-            font-family: 'Crimson Text', serif;
-            white-space: nowrap;
-            letter-spacing: 1px;
-        }
-
-        .tool-btn:hover {
-            background: var(--gold);
-            color: var(--dark);
-            transform: translateY(-2px);
-        }
-
-        .tool-btn.active {
-            background: var(--gold);
-            color: var(--dark);
-        }
-
-        /* Canvas Area */
-        .canvas-wrapper {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #0f0505 100%);
-            cursor: grab;
-        }
-
-        .canvas-wrapper.grabbing {
-            cursor: grabbing;
-        }
-
-        .canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Items Container */
-        .items-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-        }
-
-        /* Draggable Element Base */
-        .draggable {
-            position: absolute;
-            background: rgba(10, 10, 10, 0.85);
-            border: 2px solid var(--border);
-            border-radius: 2px;
-            padding: 0.8rem;
-            cursor: grab;
-            transition: all 0.2s ease;
-            min-width: 120px;
-            backdrop-filter: blur(5px);
-            touch-action: none;
-            user-select: none;
-        }
-
-        .draggable:hover {
-            border-color: var(--gold);
-            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.15);
-        }
-
-        .draggable.selected {
-            border-color: var(--red);
-            box-shadow: 0 0 20px rgba(139, 0, 0, 0.4);
-        }
-
-        .draggable.dragging {
-            cursor: grabbing;
-            opacity: 0.9;
-            z-index: 1000;
-        }
-
-        .draggable-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
-        }
-
-        .draggable-type {
-            font-size: 0.75rem;
-            color: var(--gold);
-            font-weight: 700;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .draggable-close {
-            background: none;
-            border: none;
-            color: var(--text-dim);
-            cursor: pointer;
-            font-size: 1.2rem;
-            transition: color 0.2s ease;
-            padding: 0;
-            width: 24px;
-            height: 24px;
-        }
-
-        .draggable-close:hover {
-            color: var(--red);
-        }
-
-        /* Avatar Drag */
-        .avatar-drag {
-            width: 70px;
-            height: 70px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 2.5rem;
-            background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(139, 0, 0, 0.3));
-            border: 2px solid var(--gold);
-            box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
-            position: absolute;
-            cursor: grab;
-            touch-action: none;
-            user-select: none;
-        }
-
-        .avatar-drag:hover {
-            box-shadow: 0 0 30px rgba(212, 175, 55, 0.4);
-        }
-
-        .avatar-drag.dragging {
-            cursor: grabbing;
-            z-index: 1001;
-        }
-
-        .avatar-label {
-            position: absolute;
-            bottom: -30px;
-            left: 50%;
-            transform: translateX(-50%);
-            white-space: nowrap;
-            font-size: 0.75rem;
-            color: var(--gold);
-            font-weight: 600;
-            background: rgba(10, 10, 10, 0.9);
-            padding: 0.3rem 0.8rem;
-            border-radius: 2px;
-            border: 1px solid var(--border);
-            letter-spacing: 1px;
-        }
-
-        /* Image Element */
-        .image-element {
-            background: transparent;
-            border: 2px solid var(--border);
-            padding: 0;
-            max-width: 400px;
-        }
-
-        .image-element img {
-            width: 100%;
-            height: auto;
-            display: block;
-            border-radius: 2px;
-        }
-
-        /* Video Element (YouTube, Vimeo) */
-        .video-element {
-            width: 500px;
-            max-width: 500px;
-            background: #000;
-            border: 2px solid var(--border);
-            padding: 0;
-        }
-
-        .video-element iframe {
-            width: 100%;
-            height: 280px;
-            border: none;
-            border-radius: 2px;
-        }
-
-        .video-label {
-            padding: 0.5rem;
-            background: rgba(212, 175, 55, 0.1);
-            color: var(--gold);
-            font-size: 0.75rem;
-            text-align: center;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        /* GIF Element */
-        .gif-element {
-            background: transparent;
-            border: 2px solid var(--border);
-            padding: 0;
-            max-width: 300px;
-        }
-
-        .gif-element img {
-            width: 100%;
-            height: auto;
-            display: block;
-            border-radius: 2px;
-        }
-
-        /* Tenor Search Modal */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 2000;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(5px);
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: rgba(10, 10, 10, 0.95);
-            border: 2px solid var(--gold);
-            border-radius: 2px;
-            padding: 2rem;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            animation: slideUp 0.3s ease;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .modal-content h2 {
-            margin-bottom: 1rem;
-            color: var(--gold);
-            font-family: 'Bodoni Moda', serif;
-            letter-spacing: 2px;
-        }
-
-        .modal-content input {
-            width: 100%;
-            padding: 1rem;
-            background: rgba(212, 175, 55, 0.05);
-            border: 2px solid var(--gold);
-            border-radius: 2px;
-            color: var(--text);
-            font-family: 'Crimson Text', serif;
-            margin-bottom: 1rem;
-            font-size: 1rem;
-        }
-
-        .modal-content input:focus {
-            outline: none;
-            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
-            background: rgba(212, 175, 55, 0.1);
-        }
-
-        .gif-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 1rem;
-            margin: 1rem 0;
-        }
-
-        .gif-item {
-            cursor: pointer;
-            border: 2px solid var(--border);
-            border-radius: 2px;
-            overflow: hidden;
-            transition: all 0.2s ease;
-            max-height: 150px;
-        }
-
-        .gif-item:hover {
-            border-color: var(--gold);
-            transform: scale(1.05);
-        }
-
-        .gif-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .modal-buttons button {
-            flex: 1;
-            padding: 0.8rem;
-            border: 2px solid var(--gold);
-            background: transparent;
-            color: var(--gold);
-            border-radius: 2px;
-            cursor: pointer;
-            font-weight: 700;
-            transition: all 0.3s ease;
-            font-family: 'Crimson Text', serif;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .modal-buttons button:hover {
-            background: var(--gold);
-            color: var(--dark);
-        }
-
-        /* Participants Panel */
-        .participants-panel {
-            position: fixed;
-            right: 20px;
-            top: 150px;
-            background: rgba(10, 10, 10, 0.95);
-            border: 2px solid var(--border);
-            border-radius: 2px;
-            padding: 1.5rem;
-            backdrop-filter: blur(10px);
-            z-index: 30;
-            max-width: 250px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .participants-title {
-            font-weight: 700;
-            color: var(--gold);
-            margin-bottom: 1rem;
-            font-size: 0.95rem;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .participant-item {
-            display: flex;
-            align-items: center;
-            gap: 0.8rem;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid rgba(212, 175, 55, 0.1);
-        }
-
-        .participant-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-
-        .participant-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(139, 0, 0, 0.3));
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-weight: 700;
-            border: 1px solid var(--border);
-        }
-
-        .participant-name {
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        .participant-status {
-            font-size: 0.75rem;
-            color: var(--text-dim);
-        }
-
-        /* Auth */
-        .auth-container {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #0f0505 100%);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .auth-container.active {
-            display: flex;
-        }
-
-        .auth-box {
-            background: rgba(10, 10, 10, 0.95);
-            border: 2px solid var(--gold);
-            border-radius: 2px;
-            padding: 3rem;
-            max-width: 400px;
-            width: 90%;
-            animation: slideUp 0.3s ease;
-        }
-
-        .auth-box h1 {
-            font-family: 'Bodoni Moda', serif;
-            font-size: 2.5rem;
-            color: var(--gold);
-            margin-bottom: 2rem;
-            letter-spacing: 2px;
-            text-shadow: 0 0 20px rgba(212, 175, 55, 0.3);
-        }
-
-        .auth-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .auth-form input {
-            padding: 1rem;
-            background: rgba(212, 175, 55, 0.05);
-            border: 2px solid var(--gold);
-            border-radius: 2px;
-            color: var(--text);
-            font-family: 'Crimson Text', serif;
-            font-size: 1rem;
-        }
-
-        .auth-form input:focus {
-            outline: none;
-            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
-            background: rgba(212, 175, 55, 0.1);
-        }
-
-        .auth-form button {
-            padding: 1rem;
-            background: var(--gold);
-            color: var(--dark);
-            border: none;
-            border-radius: 2px;
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 1rem;
-            font-family: 'Crimson Text', serif;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .auth-form button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 1rem 2rem;
-            background: rgba(10, 10, 10, 0.95);
-            border: 2px solid var(--gold);
-            border-radius: 2px;
-            color: var(--text);
-            z-index: 2000;
-            animation: slideIn 0.3s ease;
-            max-width: 300px;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateX(300px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .landing h1 {
-                font-size: 3rem;
-            }
-
-            .input-group {
-                flex-direction: column;
-            }
-
-            .participants-panel {
-                width: calc(100% - 40px);
-                right: 20px;
-                left: 20px;
-                max-width: none;
-            }
-
-            .room-header {
-                flex-wrap: wrap;
-            }
-
-            .room-code {
-                margin-left: 0;
-                margin-top: 0.5rem;
-            }
-
-            .toolbar {
-                padding: 1rem;
-            }
-
-            .video-element {
-                width: 100%;
-                max-width: 100%;
-            }
-
-            .video-element iframe {
-                height: 200px;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>there.fm</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --void: #070708; --abyss: #0c0c0e; --depth: #121216; --surface: #1a1a20;
+  --ridge: #25252d; --mist: #2e2e38; --fog: #3d3d4a; --bone: #e8e4dc;
+  --ash: #b8b0a4; --dust: #8a8278; --shadow: #5a544e; --crimson: #c45c5c;
+  --crimson-glow: rgba(196,92,92,0.12); --gold: #b8a070; --gold-glow: rgba(184,160,112,0.15);
+  --silver: #8a9098; --ghost: rgba(232,228,220,0.04); --glass: rgba(18,18,22,0.88);
+  --blur: blur(20px) saturate(140%); --ease: cubic-bezier(0.16,1,0.3,1);
+  --spring: cubic-bezier(0.34,1.56,0.64,1); --r-sm: 6px; --r-md: 10px; --r-lg: 16px; --r-xl: 24px;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+html,body { height:100%; overflow:hidden; }
+body { font-family:'Inter',system-ui,sans-serif; background:var(--void); color:var(--bone); -webkit-font-smoothing:antialiased; }
+
+/* === VOID BACKGROUND === */
+.void { position:fixed; inset:0; z-index:0; background:var(--void); overflow:hidden; }
+.void::before { content:""; position:absolute; inset:-50%;
+  background: radial-gradient(ellipse 80% 50% at 20% 40%, rgba(196,92,92,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 80% at 80% 20%, rgba(184,160,112,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 50% at 50% 80%, rgba(138,144,152,0.03) 0%, transparent 50%);
+  animation:voidBreathe 12s ease-in-out infinite; }
+@keyframes voidBreathe { 0%,100%{transform:translate(0,0) scale(1);opacity:1} 33%{transform:translate(2%,-1%) scale(1.02);opacity:.8} 66%{transform:translate(-1%,2%) scale(.98);opacity:.9} }
+.void-grain { position:absolute; inset:0; opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:128px; pointer-events:none; }
+.orb { position:absolute; border-radius:50%; filter:blur(80px); opacity:.12; animation:orbFloat 20s ease-in-out infinite; }
+.orb:nth-child(1){width:400px;height:400px;background:var(--crimson);top:10%;left:15%;animation-delay:0s}
+.orb:nth-child(2){width:300px;height:300px;background:var(--gold);top:60%;right:10%;animation-delay:-7s}
+.orb:nth-child(3){width:250px;height:250px;background:var(--silver);bottom:20%;left:40%;animation-delay:-14s}
+@keyframes orbFloat { 0%,100%{transform:translate(0,0) scale(1)} 25%{transform:translate(30px,-40px) scale(1.1)} 50%{transform:translate(-20px,30px) scale(.9)} 75%{transform:translate(40px,20px) scale(1.05)} }
+
+/* === SCENES === */
+.scene { position:fixed; inset:0; z-index:10; display:none; opacity:0; transition:opacity .5s var(--ease); }
+.scene.active { display:flex; opacity:1; }
+
+/* === AUTH === */
+.auth-scene { justify-content:center; align-items:center; padding:2rem; }
+.auth-card { width:100%; max-width:420px; background:var(--glass); backdrop-filter:var(--blur); border:1px solid var(--ghost);
+  border-radius:var(--r-xl); padding:3rem 2.5rem; position:relative; overflow:hidden; animation:authIn .8s var(--ease) both; }
+.auth-card::before { content:""; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent); opacity:.3; }
+@keyframes authIn { from{opacity:0;transform:translateY(30px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+.auth-brand { text-align:center; margin-bottom:2.5rem; }
+.auth-brand h1 { font-family:'Cinzel',serif; font-size:2.4rem; font-weight:600; letter-spacing:.15em; color:var(--bone);
+  margin-bottom:.5rem; animation:brandGlow 4s ease-in-out infinite; }
+@keyframes brandGlow { 0%,100%{text-shadow:0 0 20px rgba(184,160,112,.1)} 50%{text-shadow:0 0 40px rgba(184,160,112,.2),0 0 80px rgba(184,160,112,.05)} }
+.auth-brand p { font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-weight:300; font-style:italic; color:var(--dust); letter-spacing:.05em; }
+.auth-form { display:flex; flex-direction:column; gap:1rem; }
+.input-field input { width:100%; padding:1rem 1.25rem; background:var(--abyss); border:1px solid var(--ridge);
+  border-radius:var(--r-md); color:var(--bone); font-family:'Inter',sans-serif; font-size:.95rem;
+  transition:all .3s var(--ease); outline:none; }
+.input-field input:focus { border-color:var(--gold); box-shadow:0 0 0 3px var(--gold-glow), inset 0 1px 0 rgba(184,160,112,.05); }
+.input-field input::placeholder { color:var(--shadow); }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; padding:.875rem 1.5rem;
+  border:none; border-radius:var(--r-md); font-family:'Inter',sans-serif; font-size:.9rem; font-weight:600;
+  cursor:pointer; transition:all .3s var(--ease); position:relative; overflow:hidden; outline:none; }
+.btn::after { content:""; position:absolute; inset:0; background:linear-gradient(180deg,rgba(255,255,255,.08) 0%,transparent 100%); opacity:0; transition:opacity .3s; }
+.btn:hover::after { opacity:1; }
+.btn-primary { background:linear-gradient(135deg,var(--crimson),#a04040); color:var(--bone);
+  box-shadow:0 4px 20px rgba(196,92,92,.2), 0 1px 0 rgba(255,255,255,.1) inset; }
+.btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 30px rgba(196,92,92,.3), 0 1px 0 rgba(255,255,255,.1) inset; }
+.btn-ghost { background:transparent; color:var(--ash); border:1px solid var(--ridge); }
+.btn-ghost:hover { background:var(--ghost); border-color:var(--mist); color:var(--bone); }
+.btn-sm { padding:.625rem 1rem; font-size:.85rem; }
+.auth-switch { text-align:center; color:var(--dust); font-size:.9rem; margin-top:1.25rem; font-family:'Cormorant Garamond',serif; }
+.auth-switch a { color:var(--gold); text-decoration:none; font-weight:500; cursor:pointer; transition:opacity .2s; }
+.auth-switch a:hover { opacity:.8; text-decoration:underline; }
+
+/* === PROFILE PHOTO === */
+.profile-photo-wrap { display:flex; flex-direction:column; align-items:center; gap:1rem; margin-bottom:1.5rem; }
+.profile-photo { width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,var(--crimson),#8b3a3a);
+  border:2px solid var(--ridge); display:flex; justify-content:center; align-items:center; overflow:hidden;
+  cursor:pointer; transition:all .3s var(--ease); position:relative; }
+.profile-photo:hover { transform:scale(1.05); border-color:var(--gold); box-shadow:0 0 20px var(--crimson-glow); }
+.profile-photo img { width:100%; height:100%; object-fit:cover; }
+.profile-photo .photo-placeholder { font-family:'Cinzel',serif; font-size:1.8rem; font-weight:700; color:var(--bone); }
+.profile-photo input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; }
+.photo-label { font-size:.75rem; color:var(--shadow); font-family:'Cormorant Garamond',serif; font-style:italic; }
+
+/* === LANDING === */
+.landing-scene { justify-content:center; align-items:center; padding:2rem; }
+.landing-content { max-width:480px; width:100%; text-align:center; animation:landIn .8s var(--ease) both; }
+@keyframes landIn { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
+.landing-logo { font-family:'Cinzel',serif; font-size:3.5rem; font-weight:700; letter-spacing:.12em; color:var(--bone);
+  margin-bottom:.75rem; animation:brandGlow 4s ease-in-out infinite; }
+.landing-tagline { font-family:'Cormorant Garamond',serif; font-size:1.15rem; font-weight:300; font-style:italic;
+  color:var(--dust); margin-bottom:2.5rem; line-height:1.7; }
+.landing-input { display:flex; gap:.75rem; margin-bottom:1.25rem; }
+.landing-input input { flex:1; padding:1rem 1.25rem; background:var(--abyss); border:1px solid var(--ridge);
+  border-radius:var(--r-md); color:var(--bone); font-size:.95rem; transition:all .3s var(--ease); outline:none; }
+.landing-input input:focus { border-color:var(--gold); box-shadow:0 0 0 3px var(--gold-glow); }
+.landing-input input::placeholder { color:var(--shadow); }
+.landing-actions { display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap; }
+.landing-footer { margin-top:3rem; }
+.landing-footer button { color:var(--shadow); font-size:.85rem; background:none; border:none; cursor:pointer;
+  font-family:'Cormorant Garamond',serif; transition:color .2s; }
+.landing-footer button:hover { color:var(--dust); }
+
+/* === ROOM === */
+.room-scene { flex-direction:column; }
+.room-header { padding:.75rem 1.25rem; background:var(--glass); backdrop-filter:var(--blur);
+  border-bottom:1px solid var(--ghost); display:flex; justify-content:space-between; align-items:center;
+  z-index:50; gap:1rem; }
+.room-header-left { display:flex; align-items:center; gap:1rem; min-width:0; }
+.room-title { font-family:'Cinzel',serif; font-size:1.1rem; font-weight:600; color:var(--bone); white-space:nowrap; letter-spacing:.05em; }
+.room-code { background:var(--abyss); padding:.4rem .875rem; border:1px solid var(--ridge); border-radius:var(--r-sm);
+  font-size:.8rem; font-family:'SF Mono',monospace; cursor:pointer; transition:all .2s; color:var(--ash);
+  white-space:nowrap; user-select:text; }
+.room-code:hover { border-color:var(--gold); color:var(--gold); }
+.room-actions { display:flex; gap:.5rem; align-items:center; }
+
+.toolbar { padding:.75rem 1.25rem; background:var(--glass); backdrop-filter:var(--blur);
+  border-bottom:1px solid var(--ghost); display:flex; gap:1rem; align-items:center; flex-wrap:wrap;
+  z-index:40; overflow-x:auto; }
+.toolbar-group { display:flex; gap:.5rem; align-items:center; }
+.toolbar-divider { width:1px; height:24px; background:var(--ridge); }
+.toolbar-label { color:var(--shadow); font-size:.7rem; font-weight:600; text-transform:uppercase; letter-spacing:.08em; white-space:nowrap; }
+.tool-btn { padding:.5rem .875rem; background:var(--abyss); border:1px solid var(--ridge); color:var(--ash);
+  border-radius:var(--r-sm); cursor:pointer; font-weight:500; font-size:.85rem; transition:all .2s var(--ease);
+  font-family:'Inter',sans-serif; white-space:nowrap; display:inline-flex; align-items:center; gap:.4rem; }
+.tool-btn:hover { background:var(--depth); border-color:var(--mist); color:var(--bone); }
+.tool-btn.active { background:var(--crimson); border-color:var(--crimson); color:var(--bone); }
+
+.canvas-wrap { flex:1; position:relative; overflow:hidden; background:var(--void); cursor:grab; }
+.canvas-wrap:active { cursor:grabbing; }
+#canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.items { position:absolute; inset:0; }
+
+/* === DRAGGABLES === */
+.draggable { position:absolute; background:var(--glass); backdrop-filter:var(--blur); border:1px solid var(--ghost);
+  border-radius:var(--r-md); overflow:hidden; cursor:grab; transition:box-shadow .2s, border-color .2s;
+  min-width:140px; touch-action:none; user-select:none; box-shadow:0 2px 8px rgba(0,0,0,.3); will-change:transform; }
+.draggable:hover { border-color:var(--ridge); box-shadow:0 4px 16px rgba(0,0,0,.4); }
+.draggable.selected { border-color:var(--crimson); box-shadow:0 0 0 2px var(--crimson-glow), 0 4px 16px rgba(0,0,0,.4); }
+.draggable.dragging { cursor:grabbing; opacity:.95; z-index:1000 !important; box-shadow:0 8px 32px rgba(0,0,0,.5); }
+.drag-head { display:flex; justify-content:space-between; align-items:center; padding:.5rem .75rem;
+  background:var(--depth); border-bottom:1px solid var(--ghost); }
+.drag-type { font-size:.65rem; color:var(--shadow); font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
+.drag-close { background:none; border:none; color:var(--shadow); cursor:pointer; font-size:1.1rem;
+  transition:all .2s; padding:0; width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:4px; }
+.drag-close:hover { color:var(--crimson); background:var(--crimson-glow); }
+.drag-body { padding:.75rem; }
+
+/* === AVATAR === */
+.avatar { width:52px; height:52px; border-radius:50%; display:flex; justify-content:center; align-items:center;
+  font-size:1.2rem; font-weight:700; font-family:'Cinzel',serif; background:linear-gradient(135deg,var(--crimson),#8b3a3a); border:2px solid var(--void);
+  box-shadow:0 4px 16px rgba(196,92,92,.25); position:absolute; cursor:grab; touch-action:none; user-select:none;
+  transition:transform .2s var(--spring), box-shadow .2s; z-index:100; color:var(--bone); will-change:transform; }
+.avatar:hover { transform:scale(1.12); box-shadow:0 6px 24px rgba(196,92,92,.35); z-index:101; }
+.avatar.dragging { cursor:grabbing; z-index:1001 !important; transform:scale(1.18); }
+.avatar-name { position:absolute; bottom:-26px; left:50%; transform:translateX(-50%); white-space:nowrap;
+  font-size:.7rem; font-weight:600; color:var(--bone); background:var(--glass); backdrop-filter:var(--blur);
+  padding:.25rem .6rem; border-radius:var(--r-sm); border:1px solid var(--ghost); box-shadow:0 2px 8px rgba(0,0,0,.3);
+  pointer-events:none; letter-spacing:.3px; font-family:'Inter',sans-serif; }
+.avatar-img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+
+/* === MESSAGE BUBBLE === */
+.msg-bubble { position:absolute; bottom:calc(100% + 14px); left:50%; transform:translateX(-50%);
+  background:var(--glass); backdrop-filter:var(--blur); border:1px solid var(--ghost); border-radius:var(--r-md);
+  padding:.6rem 1rem; max-width:240px; min-width:60px; font-size:.85rem; color:var(--bone);
+  word-wrap:break-word; box-shadow:0 4px 16px rgba(0,0,0,.4); animation:msgIn .35s var(--spring); z-index:200;
+  pointer-events:none; font-family:'Inter',sans-serif; }
+.msg-bubble::after { content:""; position:absolute; top:100%; left:50%; transform:translateX(-50%);
+  border:7px solid transparent; border-top-color:var(--glass); }
+.msg-bubble.fading { animation:msgOut .5s var(--ease) forwards; }
+@keyframes msgIn { from{opacity:0;transform:translateX(-50%) translateY(12px) scale(.88)} to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)} }
+@keyframes msgOut { from{opacity:1;transform:translateX(-50%) scale(1)} to{opacity:0;transform:translateX(-50%) scale(.88)} }
+
+/* === MESSAGE INPUT === */
+.msg-input-wrap { position:fixed; bottom:1.5rem; left:50%; transform:translateX(-50%); display:flex; gap:.5rem;
+  align-items:center; background:var(--glass); backdrop-filter:var(--blur); border:1px solid var(--ghost);
+  border-radius:100px; padding:.5rem .5rem .5rem 1rem; box-shadow:0 8px 32px rgba(0,0,0,.4); z-index:100;
+  max-width:520px; width:calc(100% - 3rem); animation:msgBarIn .5s var(--ease) both; }
+@keyframes msgBarIn { from{opacity:0;transform:translateX(-50%) translateY(20px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+.msg-input-wrap input { flex:1; background:transparent; border:none; color:var(--bone); font-family:'Inter',sans-serif;
+  font-size:.9rem; padding:.4rem .5rem; outline:none; }
+.msg-input-wrap input::placeholder { color:var(--shadow); }
+.msg-input-wrap .btn { border-radius:100px; padding:.5rem 1.25rem; }
+
+/* === IMAGE === */
+.img-el { background:transparent; max-width:340px; }
+.img-el img { width:100%; height:auto; display:block; }
+.img-el .drag-body { padding:0; }
+
+/* === VIDEO === */
+.vid-el { width:460px; max-width:90vw; background:#000; }
+.vid-el iframe { width:100%; height:260px; border:none; display:block; }
+.vid-el .drag-body { padding:0; }
+.vid-label { padding:.5rem .75rem; background:var(--depth); color:var(--ash); font-size:.75rem; font-weight:500;
+  display:flex; justify-content:space-between; align-items:center; }
+
+/* === GIF === */
+.gif-el { background:transparent; max-width:260px; }
+.gif-el img { width:100%; height:auto; display:block; }
+.gif-el .drag-body { padding:0; }
+
+/* === MODALS === */
+.modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:2000;
+  justify-content:center; align-items:center; padding:2rem; backdrop-filter:blur(12px); }
+.modal.active { display:flex; }
+.modal-box { background:var(--glass); backdrop-filter:var(--blur); border:1px solid var(--ghost);
+  border-radius:var(--r-lg); padding:1.75rem; max-width:540px; width:100%; max-height:80vh; overflow-y:auto;
+  animation:modalIn .3s var(--ease); box-shadow:0 16px 48px rgba(0,0,0,.5); }
+@keyframes modalIn { from{opacity:0;transform:translateY(20px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+.modal-box h2 { font-family:'Cinzel',serif; font-size:1.2rem; font-weight:600; margin-bottom:1rem; color:var(--bone); letter-spacing:.05em; }
+.modal-box input { width:100%; padding:.875rem 1rem; background:var(--abyss); border:1px solid var(--ridge);
+  border-radius:var(--r-md); color:var(--bone); font-family:'Inter',sans-serif; font-size:.95rem;
+  margin-bottom:.75rem; outline:none; transition:all .2s; }
+.modal-box input:focus { border-color:var(--gold); box-shadow:0 0 0 3px var(--gold-glow); }
+.modal-box input::placeholder { color:var(--shadow); }
+.modal-box p { color:var(--dust); font-size:.85rem; margin-bottom:1rem; font-family:'Cormorant Garamond',serif; }
+.modal-actions { display:flex; gap:.75rem; margin-top:1rem; }
+.modal-actions .btn { flex:1; }
+
+/* GIF Grid */
+.gif-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:.75rem;
+  margin:1rem 0; max-height:360px; overflow-y:auto; }
+.gif-item { cursor:pointer; border:2px solid transparent; border-radius:var(--r-sm); overflow:hidden;
+  transition:all .2s var(--ease); aspect-ratio:1; background:var(--abyss); }
+.gif-item:hover { border-color:var(--crimson); transform:scale(1.04); }
+.gif-item img { width:100%; height:100%; object-fit:cover; }
+.gif-loading { text-align:center; padding:2rem; color:var(--shadow); font-family:'Cormorant Garamond',serif; font-style:italic; }
+
+/* === PARTICIPANTS === */
+.participants { position:fixed; right:1rem; top:130px; background:var(--glass); backdrop-filter:var(--blur);
+  border:1px solid var(--ghost); border-radius:var(--r-lg); padding:1rem; z-index:30; max-width:220px;
+  max-height:380px; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.4); animation:slideIn .3s var(--ease); }
+@keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+.participants h3 { font-family:'Cinzel',serif; font-weight:600; color:var(--bone); margin-bottom:.75rem;
+  font-size:.8rem; text-transform:uppercase; letter-spacing:.1em; }
+.participant { display:flex; align-items:center; gap:.75rem; margin-bottom:.75rem; padding-bottom:.75rem;
+  border-bottom:1px solid var(--ghost); }
+.participant:last-child { border-bottom:none; margin-bottom:0; padding-bottom:0; }
+.part-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,var(--crimson),#8b3a3a);
+  display:flex; justify-content:center; align-items:center; font-size:.9rem; font-weight:700; font-family:'Cinzel',serif;
+  border:2px solid var(--void); flex-shrink:0; color:var(--bone); overflow:hidden; }
+.part-avatar img { width:100%; height:100%; object-fit:cover; }
+.part-info { min-width:0; }
+.part-name { font-weight:600; font-size:.85rem; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.part-status { font-size:.75rem; color:var(--ash); display:flex; align-items:center; gap:.3rem; }
+.part-status::before { content:""; width:6px; height:6px; background:var(--gold); border-radius:50%; display:inline-block; animation:pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* === NOTIFICATIONS === */
+.toast { position:fixed; top:1rem; right:1rem; padding:.875rem 1.25rem; background:var(--glass); backdrop-filter:var(--blur);
+  border:1px solid var(--ghost); border-radius:var(--r-md); color:var(--bone); z-index:3000; animation:toastIn .35s var(--spring);
+  max-width:320px; font-size:.9rem; box-shadow:0 8px 32px rgba(0,0,0,.4); display:flex; align-items:center; gap:.6rem; }
+@keyframes toastIn { from{opacity:0;transform:translateX(40px) scale(.95)} to{opacity:1;transform:translateX(0) scale(1)} }
+.toast.ok { border-color:rgba(34,197,94,.3); }
+.toast.err { border-color:rgba(239,68,68,.3); }
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--ridge); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--mist); }
+
+/* === RESPONSIVE === */
+@media(max-width:768px) {
+  .landing-logo { font-size:2.5rem; }
+  .room-header { padding:.625rem 1rem; }
+  .toolbar { padding:.625rem 1rem; }
+  .vid-el { width:100%; max-width:100%; }
+  .vid-el iframe { height:200px; }
+  .participants { right:.5rem; top:120px; max-width:190px; }
+  .msg-input-wrap { bottom:1rem; width:calc(100% - 2rem); }
+}
+</style>
 </head>
 <body>
-    <!-- Auth Container -->
-    <div class="auth-container" id="authContainer">
-        <div class="auth-box">
-            <h1>there.fm</h1>
-            
-            <!-- Login Form -->
-            <div id="loginForm" class="auth-form">
-                <input type="email" id="loginEmail" placeholder="Email" />
-                <input type="password" id="loginPassword" placeholder="Senha" />
-                <button onclick="handleLogin()">Entrar</button>
-                <p style="text-align: center; color: var(--text-dim); margin-top: 1rem;">
-                    Sem conta? <a href="#" onclick="switchToSignup(); return false;" style="color: var(--gold); text-decoration: none; font-weight: bold;">Criar uma</a>
-                </p>
-            </div>
+<!-- Void Background -->
+<div class="void">
+  <div class="orb"></div><div class="orb"></div><div class="orb"></div>
+  <div class="void-grain"></div>
+</div>
 
-            <!-- Signup Form -->
-            <div id="signupForm" class="auth-form" style="display: none;">
-                <input type="text" id="signupName" placeholder="Nome" />
-                <input type="email" id="signupEmail" placeholder="Email" />
-                <input type="password" id="signupPassword" placeholder="Senha" />
-                <button onclick="handleSignup()">Criar Conta</button>
-                <p style="text-align: center; color: var(--text-dim); margin-top: 1rem;">
-                    Já tem conta? <a href="#" onclick="switchToLogin(); return false;" style="color: var(--gold); text-decoration: none; font-weight: bold;">Entrar</a>
-                </p>
-            </div>
-        </div>
+<!-- AUTH -->
+<div class="scene auth-scene active" id="authScene">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <h1>there.fm</h1>
+      <p>Entre para colaborar em salas compartilhadas</p>
     </div>
-
-    <!-- Landing Page -->
-    <div class="landing" id="landing">
-        <div class="landing-content">
-            <h1>there.fm</h1>
-            <p>Salas compartilhadas medievais para criatividade e colaboração genuína</p>
-            
-            <div class="input-group">
-                <input type="text" id="roomInput" placeholder="Código da sala..." />
-                <button class="btn btn-primary" onclick="joinRoom()">Entrar</button>
-            </div>
-
-            <div class="buttons">
-                <button class="btn btn-primary" onclick="createNewRoom()">+ Criar Sala</button>
-                <button class="btn btn-secondary" onclick="logout()">Logout</button>
-            </div>
+    <div id="loginForm" class="auth-form">
+      <div class="profile-photo-wrap">
+        <div class="profile-photo" id="loginPhoto" onclick="document.getElementById('loginFile').click()">
+          <span class="photo-placeholder">+</span>
+          <input type="file" id="loginFile" accept="image/*" onchange="handlePhoto(this,'login')">
         </div>
+        <span class="photo-label">Toque para adicionar foto</span>
+      </div>
+      <div class="input-field"><input type="email" id="loginEmail" placeholder="Email" autocomplete="email"></div>
+      <div class="input-field"><input type="password" id="loginPassword" placeholder="Senha" autocomplete="current-password"></div>
+      <button class="btn btn-primary" onclick="handleLogin()">Entrar</button>
+      <div class="auth-switch">Sem conta? <a onclick="switchToSignup()">Criar uma</a></div>
     </div>
-
-    <!-- Room Interface -->
-    <div class="room-container" id="roomContainer">
-        <!-- Header -->
-        <div class="room-header">
-            <div>
-                <span class="room-title" id="roomTitle">Sala Compartilhada</span>
-                <span class="room-code" id="roomCode" onclick="copyRoomCode()" title="Clique para copiar">Código: 12AB34</span>
-            </div>
-            <div class="room-actions">
-                <button onclick="toggleParticipants()">👥 Participantes</button>
-                <button onclick="leaveRoom()">Sair</button>
-            </div>
+    <div id="signupForm" class="auth-form" style="display:none">
+      <div class="profile-photo-wrap">
+        <div class="profile-photo" id="signupPhoto" onclick="document.getElementById('signupFile').click()">
+          <span class="photo-placeholder">+</span>
+          <input type="file" id="signupFile" accept="image/*" onchange="handlePhoto(this,'signup')">
         </div>
-
-        <!-- Toolbar -->
-        <div class="toolbar">
-            <div class="toolbar-group">
-                <span class="toolbar-label">Adicionar:</span>
-                <button class="tool-btn" onclick="openGifModal()">🎬 GIF (Tenor)</button>
-                <button class="tool-btn" onclick="openImageModal()">🖼️ Imagem</button>
-                <button class="tool-btn" onclick="openVideoModal()">📺 Vídeo (YouTube)</button>
-            </div>
-
-            <div class="toolbar-group">
-                <span class="toolbar-label">Seu Avatar:</span>
-                <input type="text" id="avatarInput" placeholder="😊" maxlength="2" style="width: 60px; padding: 0.5rem; background: rgba(212, 175, 55, 0.05); border: 2px solid var(--gold); border-radius: 2px; color: var(--text); font-size: 1.2rem; text-align: center;" onchange="updateAvatarEmoji()" />
-            </div>
-        </div>
-
-        <!-- Canvas Area -->
-        <div class="canvas-wrapper" id="canvasWrapper">
-            <canvas class="canvas" id="canvas"></canvas>
-            <div class="items-container" id="itemsContainer"></div>
-        </div>
+        <span class="photo-label">Toque para adicionar foto</span>
+      </div>
+      <div class="input-field"><input type="text" id="signupName" placeholder="Nome" autocomplete="name"></div>
+      <div class="input-field"><input type="email" id="signupEmail" placeholder="Email" autocomplete="email"></div>
+      <div class="input-field"><input type="password" id="signupPassword" placeholder="Senha" autocomplete="new-password"></div>
+      <button class="btn btn-primary" onclick="handleSignup()">Criar Conta</button>
+      <div class="auth-switch">Ja tem conta? <a onclick="switchToLogin()">Entrar</a></div>
     </div>
+  </div>
+</div>
 
-    <!-- Participants Panel -->
-    <div class="participants-panel" id="participantsPanel" style="display: none;">
-        <div class="participants-title">Participantes</div>
-        <div id="participantsList"></div>
+<!-- LANDING -->
+<div class="scene landing-scene" id="landingScene">
+  <div class="landing-content">
+    <div class="landing-logo">there.fm</div>
+    <p class="landing-tagline">Salas compartilhadas para criatividade e colaboracao em tempo real</p>
+    <div class="landing-input">
+      <input type="text" id="roomInput" placeholder="Codigo da sala..." maxlength="20">
+      <button class="btn btn-primary" onclick="joinRoom()">Entrar</button>
     </div>
-
-    <!-- GIF Modal -->
-    <div class="modal" id="gifModal">
-        <div class="modal-content">
-            <h2>Buscar GIF (Tenor)</h2>
-            <input type="text" id="gifSearch" placeholder="Pesquise por GIF..." onkeyup="searchGifs()" />
-            <div id="gifResults" class="gif-grid"></div>
-            <div class="modal-buttons">
-                <button onclick="closeGifModal()">Fechar</button>
-            </div>
-        </div>
+    <div class="landing-actions">
+      <button class="btn btn-primary" onclick="createNewRoom()">Criar Sala</button>
     </div>
+    <div class="landing-footer"><button onclick="logout()">Sair da conta</button></div>
+  </div>
+</div>
 
-    <!-- Image Modal -->
-    <div class="modal" id="imageModal">
-        <div class="modal-content">
-            <h2>Adicionar Imagem</h2>
-            <input type="text" id="imageUrl" placeholder="Cole a URL da imagem..." />
-            <div class="modal-buttons">
-                <button onclick="addImageToCanvas()">Adicionar</button>
-                <button onclick="closeImageModal()">Cancelar</button>
-            </div>
-        </div>
+<!-- ROOM -->
+<div class="scene room-scene" id="roomScene">
+  <div class="room-header">
+    <div class="room-header-left">
+      <span class="room-title" id="roomTitle">Sala</span>
+      <span class="room-code" id="roomCode" onclick="copyRoomCode()" title="Clique para copiar">-</span>
     </div>
-
-    <!-- Video Modal -->
-    <div class="modal" id="videoModal">
-        <div class="modal-content">
-            <h2>Adicionar Vídeo</h2>
-            <input type="text" id="videoUrl" placeholder="Cole a URL do YouTube ou Vimeo..." />
-            <p style="color: var(--text-dim); font-size: 0.9rem; margin-top: 0.5rem;">Exemplo: https://www.youtube.com/watch?v=dQw4w9WgXcQ</p>
-            <div class="modal-buttons">
-                <button onclick="addVideoToCanvas()">Adicionar</button>
-                <button onclick="closeVideoModal()">Cancelar</button>
-            </div>
-        </div>
+    <div class="room-actions">
+      <button class="btn btn-ghost btn-sm" onclick="toggleParticipants()">Participantes</button>
+      <button class="btn btn-ghost btn-sm" onclick="leaveRoom()">Sair</button>
     </div>
-
-    <script src="https://www.youtube.com/iframe_api"></script>
-    <script>
-        // ============ GLOBAL STATE ============
-        let currentRoom = null;
-        let currentUser = {
-            name: '',
-            email: '',
-            avatar: '😊',
-            id: null,
-            x: Math.random() * 400,
-            y: Math.random() * 300
-        };
-
-        let draggableElements = [];
-        let draggedElement = null;
-        let dragOffset = { x: 0, y: 0 };
-        let touchIdentifier = null;
-        let isCanvasDragging = false;
-        let canvasOffset = { x: 0, y: 0 };
-
-        // ============ INITIALIZATION ============
-        document.addEventListener('DOMContentLoaded', () => {
-            checkAuth();
-            setupEventListeners();
-            drawGrid();
-        });
-
-        // ============ AUTHENTICATION ============
-        function checkAuth() {
-            const userData = localStorage.getItem('thereFmUser');
-            if (userData) {
-                currentUser = JSON.parse(userData);
-                showLanding();
-            } else {
-                showAuth();
-            }
-        }
-
-        function showAuth() {
-            document.getElementById('authContainer').classList.add('active');
-            document.getElementById('landing').style.display = 'none';
-        }
-
-        function showLanding() {
-            document.getElementById('authContainer').classList.remove('active');
-            document.getElementById('landing').style.display = 'flex';
-        }
-
-        function switchToSignup() {
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('signupForm').style.display = 'flex';
-        }
-
-        function switchToLogin() {
-            document.getElementById('signupForm').style.display = 'none';
-            document.getElementById('loginForm').style.display = 'flex';
-        }
-
-        function handleLogin() {
-            const email = document.getElementById('loginEmail').value.trim();
-            const password = document.getElementById('loginPassword').value;
-
-            if (!email || !password) {
-                showNotification('Preencha todos os campos');
-                return;
-            }
-
-            currentUser = {
-                name: email.split('@')[0],
-                email: email,
-                avatar: '😊',
-                id: 'user_' + Math.random().toString(36).substr(2, 9),
-                x: Math.random() * 400,
-                y: Math.random() * 300
-            };
-
-            localStorage.setItem('thereFmUser', JSON.stringify(currentUser));
-            showNotification('✓ Autenticado!');
-            showLanding();
-        }
-
-        function handleSignup() {
-            const name = document.getElementById('signupName').value.trim();
-            const email = document.getElementById('signupEmail').value.trim();
-            const password = document.getElementById('signupPassword').value;
-
-            if (!name || !email || !password) {
-                showNotification('Preencha todos os campos');
-                return;
-            }
-
-            currentUser = {
-                name: name,
-                email: email,
-                avatar: '😊',
-                id: 'user_' + Math.random().toString(36).substr(2, 9),
-                x: Math.random() * 400,
-                y: Math.random() * 300
-            };
-
-            localStorage.setItem('thereFmUser', JSON.stringify(currentUser));
-            showNotification('✓ Conta criada!');
-            showLanding();
-        }
-
-        function logout() {
-            if (confirm('Desconectar?')) {
-                localStorage.removeItem('thereFmUser');
-                location.reload();
-            }
-        }
-
-        // ============ ROOM MANAGEMENT ============
-        function createNewRoom() {
-            const roomCode = 'THERE' + Math.random().toString(36).substr(2, 8).toUpperCase();
-            currentRoom = {
-                code: roomCode,
-                createdAt: new Date().toISOString(),
-                items: []
-            };
-            
-            localStorage.setItem(`room_${roomCode}`, JSON.stringify(currentRoom));
-            showJoinModal();
-        }
-
-        function joinRoom() {
-            const roomCode = document.getElementById('roomInput').value.trim().toUpperCase();
-            if (!roomCode) {
-                showNotification('Digite um código de sala');
-                return;
-            }
-
-            currentRoom = { code: roomCode, items: [] };
-            const saved = localStorage.getItem(`room_${roomCode}`);
-            if (saved) {
-                currentRoom = JSON.parse(saved);
-            }
-
-            enterRoom();
-        }
-
-        function showJoinModal() {
-            const roomCode = currentRoom.code;
-            alert(`Sua sala foi criada!\n\nCódigo: ${roomCode}\n\nCompartilhe este código para convidar outras pessoas.`);
-            enterRoom();
-        }
-
-        function enterRoom() {
-            document.getElementById('landing').style.display = 'none';
-            document.getElementById('roomContainer').classList.add('active');
-            document.getElementById('roomTitle').textContent = `Sala ${currentRoom.code}`;
-            document.getElementById('roomCode').textContent = `Código: ${currentRoom.code}`;
-
-            addParticipant(currentUser.name, currentUser.avatar, 'Você');
-            loadRoomContent();
-            drawGrid();
-            spawnAvatar();
-
-            showNotification(`✓ Bem-vindo à ${currentRoom.code}!`);
-        }
-
-        function leaveRoom() {
-            if (confirm('Sair da sala?')) {
-                document.getElementById('roomContainer').classList.remove('active');
-                document.getElementById('landing').style.display = 'flex';
-                currentRoom = null;
-                draggableElements = [];
-                document.getElementById('itemsContainer').innerHTML = '';
-            }
-        }
-
-        function copyRoomCode() {
-            navigator.clipboard.writeText(currentRoom.code).then(() => {
-                showNotification('✓ Código copiado!');
-            });
-        }
-
-        // ============ ROOM PERSISTENCE ============
-        function loadRoomContent() {
-            const container = document.getElementById('itemsContainer');
-            if (currentRoom.items && currentRoom.items.length > 0) {
-                currentRoom.items.forEach(item => {
-                    createElementFromData(item);
-                });
-            }
-        }
-
-        function saveRoomContent() {
-            currentRoom.items = draggableElements.map(el => ({
-                type: el.dataset.type,
-                x: parseInt(el.style.left),
-                y: parseInt(el.style.top),
-                content: el.innerHTML
-            }));
-
-            localStorage.setItem(`room_${currentRoom.code}`, JSON.stringify(currentRoom));
-        }
-
-        function createElementFromData(data) {
-            const container = document.getElementById('itemsContainer');
-            const el = document.createElement('div');
-            el.className = 'draggable';
-            el.dataset.type = data.type;
-            el.style.left = data.x + 'px';
-            el.style.top = data.y + 'px';
-            el.innerHTML = data.content;
-            
-            container.appendChild(el);
-            draggableElements.push(el);
-            setupDragListeners(el);
-        }
-
-        // ============ CANVAS & GRID ============
-        function drawGrid() {
-            const canvas = document.getElementById('canvas');
-            canvas.width = canvas.parentElement.clientWidth;
-            canvas.height = canvas.parentElement.clientHeight;
-
-            const ctx = canvas.getContext('2d');
-            ctx.strokeStyle = 'rgba(212, 175, 55, 0.08)';
-            ctx.lineWidth = 1;
-
-            for (let x = 0; x < canvas.width; x += 50) {
-                ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-                ctx.stroke();
-            }
-            for (let y = 0; y < canvas.height; y += 50) {
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(canvas.width, y);
-                ctx.stroke();
-            }
-        }
-
-        // ============ AVATAR SPAWNING ============
-        function spawnAvatar() {
-            const container = document.getElementById('itemsContainer');
-            const avatar = document.createElement('div');
-            avatar.className = 'avatar-drag';
-            avatar.textContent = currentUser.avatar;
-            avatar.dataset.type = 'avatar';
-            avatar.style.left = currentUser.x + 'px';
-            avatar.style.top = currentUser.y + 'px';
-
-            const label = document.createElement('div');
-            label.className = 'avatar-label';
-            label.textContent = currentUser.name;
-            avatar.appendChild(label);
-
-            container.appendChild(avatar);
-            draggableElements.push(avatar);
-            setupDragListeners(avatar);
-
-            showNotification(`${currentUser.avatar} ${currentUser.name} entrou na sala`);
-        }
-
-        function updateAvatarEmoji() {
-            const newEmoji = document.getElementById('avatarInput').value || '😊';
-            currentUser.avatar = newEmoji.slice(0, 2);
-            
-            const avatarEl = document.querySelector('.avatar-drag');
-            if (avatarEl) {
-                avatarEl.textContent = currentUser.avatar;
-            }
-        }
-
-        // ============ DRAG & DROP (Touch + Mouse) ============
-        function setupEventListeners() {
-            const container = document.getElementById('itemsContainer');
-
-            // Mouse events
-            container.addEventListener('mousedown', handleMouseDown);
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
-
-            // Touch events
-            container.addEventListener('touchstart', handleTouchStart, { passive: false });
-            document.addEventListener('touchmove', handleTouchMove, { passive: false });
-            document.addEventListener('touchend', handleTouchEnd, { passive: false });
-
-            // Keyboard
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Delete') deleteSelected();
-            });
-
-            // Window resize
-            window.addEventListener('resize', drawGrid);
-        }
-
-        function handleMouseDown(e) {
-            if (e.target.closest('.draggable-close')) return;
-            
-            const element = e.target.closest('.draggable, .avatar-drag');
-            if (element) {
-                draggedElement = element;
-                dragOffset.x = e.clientX - element.offsetLeft;
-                dragOffset.y = e.clientY - element.offsetTop;
-                element.classList.add('dragging');
-                selectElement(element);
-            }
-        }
-
-        function handleMouseMove(e) {
-            if (draggedElement) {
-                draggedElement.style.left = (e.clientX - dragOffset.x) + 'px';
-                draggedElement.style.top = (e.clientY - dragOffset.y) + 'px';
-            }
-        }
-
-        function handleMouseUp(e) {
-            if (draggedElement) {
-                draggedElement.classList.remove('dragging');
-                draggedElement = null;
-                saveRoomContent();
-            }
-        }
-
-        function handleTouchStart(e) {
-            if (e.target.closest('.draggable-close')) return;
-
-            const element = e.target.closest('.draggable, .avatar-drag');
-            if (element && e.touches.length === 1) {
-                touchIdentifier = e.touches[0].identifier;
-                draggedElement = element;
-                const touch = e.touches[0];
-                dragOffset.x = touch.clientX - element.offsetLeft;
-                dragOffset.y = touch.clientY - element.offsetTop;
-                element.classList.add('dragging');
-                selectElement(element);
-                e.preventDefault();
-            }
-        }
-
-        function handleTouchMove(e) {
-            if (draggedElement && e.touches.length === 1) {
-                const touch = e.touches[0];
-                if (touch.identifier === touchIdentifier) {
-                    draggedElement.style.left = (touch.clientX - dragOffset.x) + 'px';
-                    draggedElement.style.top = (touch.clientY - dragOffset.y) + 'px';
-                    e.preventDefault();
-                }
-            }
-        }
-
-        function handleTouchEnd(e) {
-            if (draggedElement) {
-                draggedElement.classList.remove('dragging');
-                draggedElement = null;
-                touchIdentifier = null;
-                saveRoomContent();
-            }
-        }
-
-        function setupDragListeners(element) {
-            // Já são configurados pelo event delegation acima
-        }
-
-        function selectElement(element) {
-            document.querySelectorAll('.draggable.selected, .avatar-drag.selected').forEach(el => {
-                el.classList.remove('selected');
-            });
-            element.classList.add('selected');
-        }
-
-        function deleteSelected() {
-            const selected = document.querySelector('.draggable.selected, .avatar-drag.selected');
-            if (selected && !selected.classList.contains('avatar-drag')) {
-                selected.remove();
-                draggableElements = draggableElements.filter(el => el !== selected);
-                saveRoomContent();
-            }
-        }
-
-        // ============ GIF MODAL ============
-        function openGifModal() {
-            document.getElementById('gifModal').classList.add('active');
-            document.getElementById('gifSearch').focus();
-        }
-
-        function closeGifModal() {
-            document.getElementById('gifModal').classList.remove('active');
-            document.getElementById('gifResults').innerHTML = '';
-            document.getElementById('gifSearch').value = '';
-        }
-
-        async function searchGifs() {
-            const query = document.getElementById('gifSearch').value.trim();
-            if (!query) {
-                document.getElementById('gifResults').innerHTML = '';
-                return;
-            }
-
-            try {
-                // Tenor API gratuita
-                const response = await fetch(`https://tenor.googleapis.com/client/search?q=${query}&key=AIzaSyDyWJMAx9NdbyXi0S6OnqKh5KlFuqkNCHE&limit=20`);
-                const data = await response.json();
-
-                const resultsHtml = data.results.map(gif => `
-                    <div class="gif-item" onclick="selectGif('${gif.media_formats.gif.url}')">
-                        <img src="${gif.media_formats.tinygif.url}" alt="GIF" />
-                    </div>
-                `).join('');
-
-                document.getElementById('gifResults').innerHTML = resultsHtml;
-            } catch (err) {
-                console.error('Erro ao buscar GIFs:', err);
-                showNotification('Erro ao buscar GIFs');
-            }
-        }
-
-        function selectGif(gifUrl) {
-            closeGifModal();
-            addGifToCanvas(gifUrl);
-        }
-
-        function addGifToCanvas(gifUrl) {
-            const container = document.getElementById('itemsContainer');
-            const wrapper = document.createElement('div');
-            wrapper.className = 'draggable gif-element';
-            wrapper.dataset.type = 'gif';
-            wrapper.style.left = (Math.random() * 300 + 100) + 'px';
-            wrapper.style.top = (Math.random() * 300 + 100) + 'px';
-
-            wrapper.innerHTML = `
-                <div class="draggable-header">
-                    <span class="draggable-type">GIF</span>
-                    <button class="draggable-close" onclick="this.closest('.draggable').remove(); saveRoomContent();">×</button>
-                </div>
-                <img src="${gifUrl}" alt="GIF" />
-            `;
-
-            container.appendChild(wrapper);
-            draggableElements.push(wrapper);
-            setupDragListeners(wrapper);
-            saveRoomContent();
-            showNotification('✓ GIF adicionado!');
-        }
-
-        // ============ IMAGE MODAL ============
-        function openImageModal() {
-            document.getElementById('imageModal').classList.add('active');
-            document.getElementById('imageUrl').focus();
-        }
-
-        function closeImageModal() {
-            document.getElementById('imageModal').classList.remove('active');
-            document.getElementById('imageUrl').value = '';
-        }
-
-        function addImageToCanvas() {
-            const url = document.getElementById('imageUrl').value.trim();
-            if (!url) {
-                showNotification('Cole a URL da imagem');
-                return;
-            }
-
-            const container = document.getElementById('itemsContainer');
-            const wrapper = document.createElement('div');
-            wrapper.className = 'draggable image-element';
-            wrapper.dataset.type = 'image';
-            wrapper.style.left = (Math.random() * 300 + 100) + 'px';
-            wrapper.style.top = (Math.random() * 300 + 100) + 'px';
-
-            wrapper.innerHTML = `
-                <div class="draggable-header">
-                    <span class="draggable-type">Imagem</span>
-                    <button class="draggable-close" onclick="this.closest('.draggable').remove(); saveRoomContent();">×</button>
-                </div>
-                <img src="${url}" alt="Imagem" onerror="this.parentElement.innerHTML='<p style=\"color: var(--text-dim);\">Erro ao carregar imagem</p>'" />
-            `;
-
-            container.appendChild(wrapper);
-            draggableElements.push(wrapper);
-            setupDragListeners(wrapper);
-            closeImageModal();
-            saveRoomContent();
-            showNotification('✓ Imagem adicionada!');
-        }
-
-        // ============ VIDEO MODAL ============
-        function openVideoModal() {
-            document.getElementById('videoModal').classList.add('active');
-            document.getElementById('videoUrl').focus();
-        }
-
-        function closeVideoModal() {
-            document.getElementById('videoModal').classList.remove('active');
-            document.getElementById('videoUrl').value = '';
-        }
-
-        function getEmbedUrl(url) {
-            // YouTube
-            if (url.includes('youtube.com') || url.includes('youtu.be')) {
-                const videoId = url.includes('youtu.be') 
-                    ? url.split('youtu.be/')[1]
-                    : url.split('v=')[1]?.split('&')[0];
-                return `https://www.youtube.com/embed/${videoId}?autoplay=0`;
-            }
-            
-            // Vimeo
-            if (url.includes('vimeo.com')) {
-                const videoId = url.split('vimeo.com/')[1];
-                return `https://player.vimeo.com/video/${videoId}`;
-            }
-
-            return null;
-        }
-
-        function addVideoToCanvas() {
-            const url = document.getElementById('videoUrl').value.trim();
-            if (!url) {
-                showNotification('Cole a URL do vídeo');
-                return;
-            }
-
-            const embedUrl = getEmbedUrl(url);
-            if (!embedUrl) {
-                showNotification('Use URL do YouTube ou Vimeo');
-                return;
-            }
-
-            const container = document.getElementById('itemsContainer');
-            const wrapper = document.createElement('div');
-            wrapper.className = 'draggable video-element';
-            wrapper.dataset.type = 'video';
-            wrapper.style.left = (Math.random() * 300 + 100) + 'px';
-            wrapper.style.top = (Math.random() * 300 + 100) + 'px';
-
-            wrapper.innerHTML = `
-                <div class="video-label">
-                    <span class="draggable-type">Vídeo em Transmissão</span>
-                    <button class="draggable-close" onclick="this.closest('.draggable').remove(); saveRoomContent();" style="float: right;">×</button>
-                </div>
-                <iframe src="${embedUrl}" allowfullscreen="" allow="autoplay"></iframe>
-            `;
-
-            container.appendChild(wrapper);
-            draggableElements.push(wrapper);
-            setupDragListeners(wrapper);
-            closeVideoModal();
-            saveRoomContent();
-            showNotification('✓ Vídeo adicionado para transmissão!');
-        }
-
-        // ============ PARTICIPANTS ============
-        function addParticipant(name, avatar, label = '') {
-            const participantsList = document.getElementById('participantsList');
-            const existing = Array.from(participantsList.querySelectorAll('.participant-name'))
-                .some(el => el.textContent === name);
-            
-            if (existing) return;
-
-            const item = document.createElement('div');
-            item.className = 'participant-item';
-            item.innerHTML = `
-                <div class="participant-avatar">${avatar}</div>
-                <div>
-                    <div class="participant-name">${name}</div>
-                    <div class="participant-status">${label || 'Online'}</div>
-                </div>
-            `;
-            participantsList.appendChild(item);
-        }
-
-        function toggleParticipants() {
-            const panel = document.getElementById('participantsPanel');
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        }
-
-        // ============ UTILITIES ============
-        function showNotification(message) {
-            const notif = document.createElement('div');
-            notif.className = 'notification';
-            notif.textContent = message;
-            document.body.appendChild(notif);
-
-            setTimeout(() => {
-                notif.remove();
-            }, 3000);
-        }
-    </script>
+  </div>
+  <div class="toolbar">
+    <div class="toolbar-group">
+      <span class="toolbar-label">Adicionar</span>
+      <button class="tool-btn" onclick="openGifModal()">GIF</button>
+      <button class="tool-btn" onclick="openImageModal()">Imagem</button>
+      <button class="tool-btn" onclick="openVideoModal()">Video</button>
+    </div>
+    <div class="toolbar-divider"></div>
+    <div class="toolbar-group">
+      <span class="toolbar-label">Avatar</span>
+      <input type="text" id="avatarInput" class="avatar-input" placeholder="A" maxlength="2" value="A" onchange="updateAvatar()">
+    </div>
+  </div>
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="canvas"></canvas>
+    <div class="items" id="items"></div>
+  </div>
+  <div class="msg-input-wrap" id="msgInputWrap">
+    <input type="text" id="msgInput" placeholder="Digite uma mensagem..." maxlength="200" onkeydown="handleMsgKey(event)">
+    <button class="btn btn-primary btn-sm" onclick="sendMsg()">Enviar</button>
+  </div>
+</div>
+
+<!-- PARTICIPANTS -->
+<div class="participants" id="participants" style="display:none">
+  <h3>Participantes</h3>
+  <div id="participantsList"></div>
+</div>
+
+<!-- GIF MODAL -->
+<div class="modal" id="gifModal">
+  <div class="modal-box">
+    <h2>Buscar GIF</h2>
+    <input type="text" id="gifSearch" placeholder="Pesquise no Tenor..." onkeydown="handleGifKey(event)">
+    <div id="gifResults" class="gif-grid"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeGifModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE MODAL -->
+<div class="modal" id="imageModal">
+  <div class="modal-box">
+    <h2>Adicionar Imagem</h2>
+    <input type="text" id="imageUrl" placeholder="Cole a URL da imagem..." onkeydown="handleImgKey(event)">
+    <p>Suporta: JPG, PNG, GIF, WebP</p>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="addImage()">Adicionar</button>
+      <button class="btn btn-ghost" onclick="closeImageModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIDEO MODAL -->
+<div class="modal" id="videoModal">
+  <div class="modal-box">
+    <h2>Adicionar Video</h2>
+    <input type="text" id="videoUrl" placeholder="Cole a URL do YouTube ou Vimeo..." onkeydown="handleVidKey(event)">
+    <p>Exemplo: https://youtube.com/watch?v=...</p>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="addVideo()">Adicionar</button>
+      <button class="btn btn-ghost" onclick="closeVideoModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========== STATE ========== */
+let currentRoom=null, dragged=null, dragOff={x:0,y:0}, touchId=null, isDrag=false, dragT=0;
+let currentUser={name:"",email:"",avatar:"A",photo:"",id:null,x:120,y:120};
+let elements=[], roomUsers=[];
+
+/* ========== INIT ========== */
+document.addEventListener("DOMContentLoaded",()=>{ checkAuth(); setupListeners(); drawGrid(); });
+
+/* ========== PHOTO HANDLER ========== */
+function handlePhoto(input,form){
+  let file=input.files[0]; if(!file) return;
+  let reader=new FileReader();
+  reader.onload=function(e){
+    let data=e.target.result;
+    let wrap=document.getElementById(form+"Photo");
+    wrap.innerHTML='<img src="'+data+'" class="avatar-img"><input type="file" id="'+form+'File" accept="image/*" onchange="handlePhoto(this,'+"'"+form+"'"+')">';
+    if(form==="login") currentUser.photo=data; else currentUser.photo=data;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ========== AUTH ========== */
+function checkAuth(){
+  let d=localStorage.getItem("thereFmUser");
+  if(d){ try{ let u=JSON.parse(d); currentUser=u; if(u.photo) restorePhoto(u.photo); showLanding(); }catch{ localStorage.removeItem("thereFmUser"); showAuth(); } }
+  else showAuth();
+}
+function restorePhoto(data){
+  let wrap=document.getElementById("loginPhoto");
+  if(wrap) wrap.innerHTML='<img src="'+data+'" class="avatar-img"><input type="file" id="loginFile" accept="image/*" onchange="handlePhoto(this,'+"'"+"login"+"'"+')">';
+}
+function showAuth(){ setScene("authScene"); }
+function showLanding(){ setScene("landingScene"); }
+function setScene(id){ document.querySelectorAll(".scene").forEach(s=>s.classList.remove("active")); document.getElementById(id).classList.add("active"); }
+function switchToSignup(){ document.getElementById("loginForm").style.display="none"; document.getElementById("signupForm").style.display="flex"; }
+function switchToLogin(){ document.getElementById("signupForm").style.display="none"; document.getElementById("loginForm").style.display="flex"; }
+
+function handleLogin(){
+  let e=document.getElementById("loginEmail").value.trim(), p=document.getElementById("loginPassword").value;
+  if(!e||!p){ toast("Preencha todos os campos","err"); return; }
+  currentUser.name=e.split("@")[0]; currentUser.email=e; currentUser.id="u_"+Date.now();
+  currentUser.x=120+Math.random()*200; currentUser.y=120+Math.random()*200;
+  localStorage.setItem("thereFmUser",JSON.stringify(currentUser));
+  toast("Bem-vindo de volta","ok"); showLanding();
+}
+function handleSignup(){
+  let n=document.getElementById("signupName").value.trim(), e=document.getElementById("signupEmail").value.trim(), p=document.getElementById("signupPassword").value;
+  if(!n||!e||!p){ toast("Preencha todos os campos","err"); return; }
+  if(p.length<6){ toast("Senha deve ter pelo menos 6 caracteres","err"); return; }
+  currentUser.name=n; currentUser.email=e; currentUser.id="u_"+Date.now();
+  currentUser.x=120+Math.random()*200; currentUser.y=120+Math.random()*200;
+  localStorage.setItem("thereFmUser",JSON.stringify(currentUser));
+  toast("Conta criada","ok"); showLanding();
+}
+function logout(){ if(confirm("Sair da conta?")){ localStorage.removeItem("thereFmUser"); location.reload(); } }
+
+/* ========== ROOM ========== */
+function createNewRoom(){
+  let c="THERE"+Math.random().toString(36).substr(2,6).toUpperCase();
+  currentRoom={code:c,createdAt:new Date().toISOString(),items:[],users:[]};
+  localStorage.setItem("room_"+c,JSON.stringify(currentRoom));
+  toast("Sala "+c+" criada","ok"); enterRoom();
+}
+function joinRoom(){
+  let c=document.getElementById("roomInput").value.trim().toUpperCase();
+  if(!c){ toast("Digite um codigo","err"); return; }
+  let s=localStorage.getItem("room_"+c);
+  if(s) currentRoom=JSON.parse(s); else currentRoom={code:c,items:[],users:[],createdAt:new Date().toISOString()};
+  enterRoom();
+}
+function enterRoom(){
+  setScene("roomScene");
+  document.getElementById("roomTitle").textContent=currentRoom.code;
+  document.getElementById("roomCode").textContent=currentRoom.code;
+  elements=[]; document.getElementById("items").innerHTML=""; document.getElementById("participantsList").innerHTML="";
+  loadItems(); drawGrid(); spawnAvatar(currentUser); addDemoUsers(); addParticipant(currentUser.name,currentUser.avatar,currentUser.photo,"Voce");
+  toast("Entrou na "+currentRoom.code,"ok");
+}
+function leaveRoom(){ if(confirm("Sair da sala?")){ setScene("landingScene"); document.getElementById("participants").style.display="none"; currentRoom=null; elements=[]; roomUsers=[]; document.getElementById("items").innerHTML=""; } }
+function copyRoomCode(){ if(currentRoom){ navigator.clipboard.writeText(currentRoom.code).then(()=>toast("Codigo copiado","ok")).catch(()=>toast("Erro ao copiar","err")); } }
+
+/* ========== DEMO USERS ========== */
+function addDemoUsers(){
+  let demos=[{name:"Ana",avatar:"A",photo:"",id:"d1",x:320,y:220},{name:"Bruno",avatar:"B",photo:"",id:"d2",x:520,y:180},{name:"Carla",avatar:"C",photo:"",id:"d3",x:240,y:420}];
+  demos.forEach(u=>{ spawnAvatar(u); addParticipant(u.name,u.avatar,u.photo); roomUsers.push(u); });
+}
+
+/* ========== PERSISTENCE ========== */
+function loadItems(){ if(currentRoom&&currentRoom.items&&currentRoom.items.length) currentRoom.items.forEach(i=>createFromData(i)); }
+function saveItems(){
+  if(!currentRoom) return;
+  currentRoom.items=elements.filter(e=>!e.classList.contains("avatar")).map(e=>({type:e.dataset.type,x:parseInt(e.style.left)||0,y:parseInt(e.style.top)||0,src:e.dataset.src||""}));
+  localStorage.setItem("room_"+currentRoom.code,JSON.stringify(currentRoom));
+}
+function createFromData(d){
+  let c=document.getElementById("items");
+  if(d.type==="gif") createGif(d.src,d.x,d.y,c);
+  else if(d.type==="image") createImg(d.src,d.x,d.y,c);
+  else if(d.type==="video") createVid(d.src,d.x,d.y,c);
+}
+
+/* ========== CANVAS ========== */
+function drawGrid(){
+  let cv=document.getElementById("canvas"), w=document.getElementById("canvasWrap");
+  if(!cv||!w) return;
+  cv.width=w.clientWidth; cv.height=w.clientHeight;
+  let ctx=cv.getContext("2d"); ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle="rgba(255,255,255,0.025)"; ctx.lineWidth=1;
+  for(let x=0;x<cv.width;x+=60){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,cv.height); ctx.stroke(); }
+  for(let y=0;y<cv.height;y+=60){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cv.width,y); ctx.stroke(); }
+}
+
+/* ========== AVATAR ========== */
+function spawnAvatar(u){
+  let c=document.getElementById("items");
+  if(c.querySelector('[data-user-id="'+u.id+'"]')) return;
+  let a=document.createElement("div"); a.className="avatar"; a.dataset.type="avatar"; a.dataset.userId=u.id;
+  a.style.left=(u.x||120)+"px"; a.style.top=(u.y||120)+"px";
+  if(u.photo){ a.innerHTML='<img src="'+u.photo+'" class="avatar-img">'; }
+  else{ a.textContent=u.avatar||"A"; }
+  let l=document.createElement("div"); l.className="avatar-name"; l.textContent=u.name||"User"; a.appendChild(l);
+  c.appendChild(a); elements.push(a);
+}
+function updateAvatar(){
+  let v=document.getElementById("avatarInput").value||"A"; currentUser.avatar=v.slice(0,2);
+  let el=document.querySelector('[data-user-id="'+currentUser.id+'"]');
+  if(el){ let lbl=el.querySelector(".avatar-name"); if(currentUser.photo){ el.innerHTML='<img src="'+currentUser.photo+'" class="avatar-img">'; } else { el.textContent=currentUser.avatar; } if(lbl)el.appendChild(lbl); }
+  localStorage.setItem("thereFmUser",JSON.stringify(currentUser));
+}
+
+/* ========== SMOOTH DRAG ========== */
+function setupListeners(){
+  let c=document.getElementById("items");
+  c.addEventListener("mousedown",onMouseDown,{passive:false});
+  document.addEventListener("mousemove",onMouseMove,{passive:false});
+  document.addEventListener("mouseup",onMouseUp);
+  c.addEventListener("touchstart",onTouchStart,{passive:false});
+  document.addEventListener("touchmove",onTouchMove,{passive:false});
+  document.addEventListener("touchend",onTouchEnd);
+  document.addEventListener("keydown",e=>{ if((e.key==="Delete"||e.key==="Backspace")&&e.target.tagName!=="INPUT"&&e.target.tagName!=="TEXTAREA") delSelected(); });
+  window.addEventListener("resize",drawGrid);
+  document.querySelectorAll(".modal").forEach(m=>m.addEventListener("click",e=>{ if(e.target===m)m.classList.remove("active"); }));
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.querySelectorAll(".modal").forEach(m=>m.classList.remove("active")); });
+}
+
+let lastX=0, lastY=0, rafId=null;
+
+function onMouseDown(e){
+  if(e.button!==0) return; if(e.target.closest(".drag-close")) return;
+  let el=e.target.closest(".draggable,.avatar");
+  if(el){ e.preventDefault(); e.stopPropagation(); dragged=el; dragOff.x=e.clientX-el.offsetLeft; dragOff.y=e.clientY-el.offsetTop; el.classList.add("dragging"); isDrag=false; dragT=Date.now(); selectEl(el); }
+}
+function onMouseMove(e){
+  if(!dragged) return; e.preventDefault();
+  let w=document.getElementById("canvasWrap"), dx=e.clientX-dragOff.x, dy=e.clientY-dragOff.y;
+  let mx=w.clientWidth-dragged.offsetWidth, my=w.clientHeight-dragged.offsetHeight;
+  lastX=Math.max(0,Math.min(dx,mx)); lastY=Math.max(0,Math.min(dy,my));
+  if(!rafId){ rafId=requestAnimationFrame(()=>{ if(dragged){ dragged.style.left=lastX+"px"; dragged.style.top=lastY+"px"; } rafId=null; }); }
+  isDrag=true;
+}
+function onMouseUp(){
+  if(!dragged) return; let d=isDrag, t=Date.now()-dragT;
+  dragged.classList.remove("dragging"); dragged=null; isDrag=false; if(rafId){ cancelAnimationFrame(rafId); rafId=null; } if(d&&t>80) saveItems();
+}
+
+function onTouchStart(e){
+  if(e.target.closest(".drag-close")) return;
+  let el=e.target.closest(".draggable,.avatar");
+  if(el&&e.touches.length===1){ let t=e.touches[0]; touchId=t.identifier; dragged=el; dragOff.x=t.clientX-el.offsetLeft; dragOff.y=t.clientY-el.offsetTop; el.classList.add("dragging"); isDrag=false; dragT=Date.now(); selectEl(el); e.preventDefault(); e.stopPropagation(); }
+}
+function onTouchMove(e){
+  if(!dragged||e.touches.length!==1) return; let t=e.touches[0]; if(t.identifier!==touchId) return;
+  let w=document.getElementById("canvasWrap"), dx=t.clientX-dragOff.x, dy=t.clientY-dragOff.y;
+  let mx=w.clientWidth-dragged.offsetWidth, my=w.clientHeight-dragged.offsetHeight;
+  lastX=Math.max(0,Math.min(dx,mx)); lastY=Math.max(0,Math.min(dy,my));
+  if(!rafId){ rafId=requestAnimationFrame(()=>{ if(dragged){ dragged.style.left=lastX+"px"; dragged.style.top=lastY+"px"; } rafId=null; }); }
+  isDrag=true; e.preventDefault(); e.stopPropagation();
+}
+function onTouchEnd(){
+  if(!dragged) return; let d=isDrag, t=Date.now()-dragT;
+  dragged.classList.remove("dragging"); dragged=null; touchId=null; isDrag=false; if(rafId){ cancelAnimationFrame(rafId); rafId=null; } if(d&&t>80) saveItems();
+}
+
+function selectEl(el){ document.querySelectorAll(".draggable.selected,.avatar.selected").forEach(e=>e.classList.remove("selected")); el.classList.add("selected"); }
+function delSelected(){ let s=document.querySelector(".draggable.selected"); if(s&&!s.classList.contains("avatar")){ s.remove(); elements=elements.filter(e=>e!==s); saveItems(); toast("Removido","ok"); } }
+
+/* ========== MESSAGES ========== */
+function handleMsgKey(e){ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendMsg(); } }
+function sendMsg(){
+  let inp=document.getElementById("msgInput"), txt=inp.value.trim(); if(!txt) return;
+  let av=document.querySelector('[data-user-id="'+currentUser.id+'"]'); if(!av){ toast("Avatar nao encontrado","err"); return; }
+  showBubble(av,txt); inp.value=""; inp.focus();
+}
+function showBubble(av,txt){
+  let ex=av.querySelector(".msg-bubble"); if(ex) ex.remove();
+  let b=document.createElement("div"); b.className="msg-bubble"; b.textContent=txt; av.appendChild(b);
+  setTimeout(()=>{ if(b.parentElement){ b.classList.add("fading"); setTimeout(()=>b.remove(),500); } },8000);
+}
+function simMsg(){
+  if(!currentRoom||!roomUsers.length) return; let u=roomUsers[Math.floor(Math.random()*roomUsers.length)];
+  let msgs=["Oi!","Bom trabalho!","Concordo","Vamos continuar","Show!","Legal","Beleza","Perfeito"];
+  let av=document.querySelector('[data-user-id="'+u.id+'"]'); if(av) showBubble(av,msgs[Math.floor(Math.random()*msgs.length)]);
+}
+setInterval(()=>{ if(currentRoom&&Math.random()>0.65) simMsg(); },12000);
+
+/* ========== GIF (TENOR V2 API) ========== */
+function openGifModal(){ document.getElementById("gifModal").classList.add("active"); document.getElementById("gifSearch").focus(); }
+function closeGifModal(){ document.getElementById("gifModal").classList.remove("active"); document.getElementById("gifResults").innerHTML=""; document.getElementById("gifSearch").value=""; }
+function handleGifKey(e){ if(e.key==="Enter") searchGifs(); }
+
+async function searchGifs(){
+  let q=document.getElementById("gifSearch").value.trim(), r=document.getElementById("gifResults");
+  if(!q){ r.innerHTML=""; return; }
+  r.innerHTML='<div class="gif-loading">Buscando no Tenor...</div>';
+  try {
+    let res=await fetch("https://tenor.googleapis.com/v2/search?q="+encodeURIComponent(q)+"&key=AIzaSyC7H6vx0zC7_M2Y22G0BsyiOj8w0wR8e1w&limit=20&client_key=therefm");
+    if(!res.ok) throw new Error("API error: "+res.status);
+    let d=await res.json();
+    if(!d.results||!d.results.length){ r.innerHTML='<div class="gif-loading">Nenhum resultado</div>'; return; }
+    r.innerHTML=d.results.map(function(g){ return '<div class="gif-item" onclick="pickGif('+"'"+g.media_formats.gif.url+"'"+')">'+'<img src="'+g.media_formats.tinygif.url+'" alt="GIF" loading="lazy">'+'</div>'; }).join("");
+  } catch(err){ console.error("Tenor error:",err); r.innerHTML='<div class="gif-loading">Erro ao buscar. Tente outra palavra.</div>'; }
+}
+function pickGif(url){ closeGifModal(); addGif(url); }
+function addGif(url){ let c=document.getElementById("items"), x=100+Math.random()*300, y=100+Math.random()*300; createGif(url,x,y,c); saveItems(); toast("GIF adicionado","ok"); }
+function createGif(src,x,y,c){
+  let w=document.createElement("div"); w.className="draggable gif-el"; w.dataset.type="gif"; w.dataset.src=src;
+  w.style.left=x+"px"; w.style.top=y+"px";
+  w.innerHTML='<div class="drag-head"><span class="drag-type">GIF</span><button class="drag-close" onclick="removeEl(this.closest('+"'.draggable'"+'))">&times;</button></div><div class="drag-body"><img src="'+src+'" alt="GIF" loading="lazy"></div>';
+  c.appendChild(w); elements.push(w);
+}
+
+/* ========== IMAGE ========== */
+function openImageModal(){ document.getElementById("imageModal").classList.add("active"); document.getElementById("imageUrl").focus(); }
+function closeImageModal(){ document.getElementById("imageModal").classList.remove("active"); document.getElementById("imageUrl").value=""; }
+function handleImgKey(e){ if(e.key==="Enter") addImage(); }
+function addImage(){
+  let url=document.getElementById("imageUrl").value.trim(); if(!url){ toast("Cole uma URL","err"); return; }
+  let c=document.getElementById("items"), x=100+Math.random()*300, y=100+Math.random()*300; createImg(url,x,y,c);
+  closeImageModal(); saveItems(); toast("Imagem adicionada","ok");
+}
+function createImg(src,x,y,c){
+  let w=document.createElement("div"); w.className="draggable img-el"; w.dataset.type="image"; w.dataset.src=src;
+  w.style.left=x+"px"; w.style.top=y+"px";
+  w.innerHTML='<div class="drag-head"><span class="drag-type">Imagem</span><button class="drag-close" onclick="removeEl(this.closest('+"'.draggable'"+'))">&times;</button></div><div class="drag-body"><img src="'+src+'" alt="Imagem" loading="lazy" onerror="this.src='+"'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22 fill=%22%235a544e%22>Erro</text></svg>'"+'"></div>';
+  c.appendChild(w); elements.push(w);
+}
+
+/* ========== VIDEO ========== */
+function openVideoModal(){ document.getElementById("videoModal").classList.add("active"); document.getElementById("videoUrl").focus(); }
+function closeVideoModal(){ document.getElementById("videoModal").classList.remove("active"); document.getElementById("videoUrl").value=""; }
+function handleVidKey(e){ if(e.key==="Enter") addVideo(); }
+function getEmbed(url){
+  let m=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  if(m) return "https://www.youtube.com/embed/"+m[1];
+  m=url.match(/vimeo\.com\/(\d+)/); if(m) return "https://player.vimeo.com/video/"+m[1];
+  return null;
+}
+function addVideo(){
+  let url=document.getElementById("videoUrl").value.trim(); if(!url){ toast("Cole uma URL","err"); return; }
+  let emb=getEmbed(url); if(!emb){ toast("URL invalida. Use YouTube ou Vimeo.","err"); return; }
+  let c=document.getElementById("items"), x=100+Math.random()*200, y=100+Math.random()*200; createVid(emb,x,y,c);
+  closeVideoModal(); saveItems(); toast("Video adicionado","ok");
+}
+function createVid(src,x,y,c){
+  let w=document.createElement("div"); w.className="draggable vid-el"; w.dataset.type="video"; w.dataset.src=src;
+  w.style.left=x+"px"; w.style.top=y+"px";
+  w.innerHTML='<div class="vid-label"><span class="drag-type">Video</span><button class="drag-close" onclick="removeEl(this.closest('+"'.draggable'"+'))">&times;</button></div><div class="drag-body"><iframe src="'+src+'" allowfullscreen allow="autoplay; encrypted-media" loading="lazy"></iframe></div>';
+  c.appendChild(w); elements.push(w);
+}
+
+/* ========== UTILS ========== */
+function removeEl(el){ if(!el) return; el.remove(); elements=elements.filter(e=>e!==el); saveItems(); toast("Removido","ok"); }
+
+function addParticipant(name,avatar,photo,label){
+  let pl=document.getElementById("participantsList");
+  if(Array.from(pl.querySelectorAll(".part-name")).some(e=>e.textContent===name)) return;
+  let d=document.createElement("div"); d.className="participant";
+  let avHtml=photo?'<img src="'+photo+'" class="avatar-img">':avatar;
+  d.innerHTML='<div class="part-avatar">'+avHtml+'</div><div class="part-info"><div class="part-name">'+name+'</div><div class="part-status">'+(label||"Online")+'</div></div>';
+  pl.appendChild(d);
+}
+function toggleParticipants(){ let p=document.getElementById("participants"); p.style.display=p.style.display==="none"?"block":"none"; }
+
+function toast(msg,type){
+  let t=document.createElement("div"); t.className="toast "+(type||""); t.textContent=msg; document.body.appendChild(t);
+  setTimeout(()=>{ t.style.opacity="0"; t.style.transform="translateX(40px)"; t.style.transition="all .3s"; setTimeout(()=>t.remove(),300); },3000);
+}
+</script>
 </body>
 </html>
