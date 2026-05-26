@@ -200,11 +200,10 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 /* ── RESIZE HANDLE ──────────────────── */
-.rzh{position:absolute;bottom:4px;right:4px;width:44px;height:44px;display:flex;align-items:flex-end;justify-content:flex-end;cursor:se-resize;touch-action:none;z-index:30;opacity:0;transition:opacity .18s;pointer-events:all}
+.rzh{position:absolute;bottom:4px;right:4px;width:32px;height:32px;display:flex;align-items:flex-end;justify-content:flex-end;cursor:se-resize;touch-action:none;z-index:30;opacity:0;transition:opacity .18s;pointer-events:all}
 .rzh::after{content:'';width:12px;height:12px;background:var(--crimson);border:2px solid rgba(234,230,222,.9);border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,.5);transition:transform .15s;display:block}
 .card:hover .rzh,.card.sel .rzh{opacity:1}
 .rzh:active::after{transform:scale(1.2)}
-@media (hover:none){.rzh{opacity:.72!important}}
 
 /* ── CAPTURE OVERLAY ────────────────── */
 #capture{display:none;position:fixed;inset:0;z-index:8000;background:transparent}
@@ -776,7 +775,7 @@ function applyState(msg){
 function applyAdd(item){ if(!item||qs('[data-item-id="'+item.id+'"]'))return; const c=$('items'); if(item.type==='gif')mkGif(item.src,item.x,item.y,item.id,c,false); else if(item.type==='image')mkImg(item.src,item.x,item.y,item.id,c,false); else if(item.type==='video')mkVid(item.vid,item.x,item.y,item.id,c,false); }
 function applyRm(id){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.remove();els=els.filter(e=>e!==el);} }
 function applyMv(id,x,y){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.left=x+'px';el.style.top=y+'px';} }
-function applyRz(id,w,h){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.width=w+'px';el.style.height=h+'px'; const uid=el.dataset.ytuid; if(uid){const vidW=Math.round(w),vidH=Math.max(80,Math.round(h)-HEAD-CTRL);const ypc=$('ypc-'+uid);if(ypc){ypc.style.width=vidW+'px';ypc.style.height=vidH+'px';ypc.style.maxWidth='100%';const iframe=ypc.querySelector('iframe');if(iframe){iframe.style.width=vidW+'px';iframe.style.height=vidH+'px';iframe.style.maxWidth='100%';}} const p=ytPlrs[uid];if(p&&p.setSize)p.setSize(vidW,vidH);}} }
+function applyRz(id,w,h){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.width=w+'px';el.style.height=h+'px'; const uid=el.dataset.ytuid; if(uid){const ypc=$('ypc-'+uid);if(ypc){ypc.style.width=w+'px';ypc.style.height=Math.max(80,h-HEAD-CTRL)+'px';} const p=ytPlrs[uid];if(p&&p.setSize)p.setSize(Math.round(w),Math.max(80,Math.round(h)-HEAD-CTRL));}} }
 function applyVS(uid,action,time){ const p=ytPlrs[uid]; if(!p)return; try{if(Math.abs(p.getCurrentTime()-time)>1.5)p.seekTo(time,true);if(action==='play')p.playVideo();else if(action==='pause')p.pauseVideo();}catch(e){} }
 
 /* ── DRAW ── */
@@ -846,10 +845,7 @@ function initPointer(){
   document.addEventListener('mouseup',()=>endIA());
 
   let tid=null;
-  items.addEventListener('touchstart',e=>{ if(drawMode||e.touches.length!==1)return; const t=e.touches[0]; tid=t.identifier;
-    // Use elementFromPoint for precise hit-test so .rzh (position:absolute outside card flow) is detected correctly
-    const el=document.elementFromPoint(t.clientX,t.clientY);
-    if(beginIA(el||t.target,t.clientX,t.clientY)){e.preventDefault();e.stopPropagation();} },{passive:false});
+  items.addEventListener('touchstart',e=>{ if(drawMode||e.touches.length!==1)return; const t=e.touches[0]; tid=t.identifier; if(beginIA(t.target,t.clientX,t.clientY)){e.preventDefault();e.stopPropagation();} },{passive:false});
   document.addEventListener('touchmove',e=>{ if(!D&&!R)return; const t=Array.from(e.touches).find(x=>x.identifier===tid); if(!t)return; move(t.clientX,t.clientY); e.preventDefault(); },{passive:false});
   document.addEventListener('touchend',()=>{ tid=null; endIA(); });
   $('cw').addEventListener('mousedown',e=>{ if(!e.target.closest('.card,.av-wrap'))deselect(); });
@@ -888,12 +884,8 @@ function move(cx,cy){
       const uid=R.el.dataset.ytuid;
       if(uid){
         const vidW=Math.round(pw),vidH=Math.max(80,Math.round(ph)-HEAD-CTRL);
-        const ypc=$('ypc-'+uid);
-        if(ypc){ypc.style.width=vidW+'px';ypc.style.height=vidH+'px';ypc.style.maxWidth='100%';}
+        const ypc=$('ypc-'+uid); if(ypc){ypc.style.width=vidW+'px';ypc.style.height=vidH+'px';}
         const p=ytPlrs[uid]; if(p&&p.setSize)p.setSize(vidW,vidH);
-        // Also clamp the iframe itself so it never overflows
-        const iframe=ypc&&ypc.querySelector('iframe');
-        if(iframe){iframe.style.width=vidW+'px';iframe.style.height=vidH+'px';iframe.style.maxWidth='100%';}
       }
       raf=null;
     });
@@ -965,7 +957,7 @@ function mkVid(vid,x,y,id,container,broadcastIt){
   const uid='ytp_'+id;
   const w=document.createElement('div'); w.className='card vid-card'; w.dataset.type='video'; w.dataset.vid=vid; w.dataset.itemId=id; w.dataset.ytuid=uid;
   Object.assign(w.style,{position:'absolute',left:x+'px',top:y+'px',zIndex:++zTop,width:VID_W+'px',height:(HEAD+VID_H+CTRL)+'px',display:'flex',flexDirection:'column'});
-  w.innerHTML=`<div class="ch" style="height:${HEAD}px;flex-shrink:0"><span class="ct">▶ YouTube</span><div style="display:flex;align-items:center;gap:.38rem"><span class="vsync">SYNC</span><button class="cx" onclick="removeEl(this.closest('.card'))">×</button></div></div><div id="ypc-${uid}" style="flex-shrink:0;width:${VID_W}px;height:${VID_H}px;background:#000;overflow:hidden;max-width:100%"></div><div class="vctrl" style="height:${CTRL}px;flex-shrink:0"><button class="vcbtn" onclick="vPlay('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg></button><button class="vcbtn" onclick="vPause('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',-10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 100-.49"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 110-.49"/></svg></button><span class="vtime" id="vt-${uid}">0:00</span></div>`;
+  w.innerHTML=`<div class="ch" style="height:${HEAD}px;flex-shrink:0"><span class="ct">▶ YouTube</span><div style="display:flex;align-items:center;gap:.38rem"><span class="vsync">SYNC</span><button class="cx" onclick="removeEl(this.closest('.card'))">×</button></div></div><div id="ypc-${uid}" style="flex-shrink:0;width:${VID_W}px;height:${VID_H}px;background:#000;overflow:hidden"></div><div class="vctrl" style="height:${CTRL}px;flex-shrink:0"><button class="vcbtn" onclick="vPlay('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg></button><button class="vcbtn" onclick="vPause('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',-10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 100-.49"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 110-.49"/></svg></button><span class="vtime" id="vt-${uid}">0:00</span></div>`;
   const rzh=document.createElement('div'); rzh.className='rzh'; w.appendChild(rzh);
   container.appendChild(w); els.push(w);
   if(broadcastIt)broadcast({type:'ADD_ITEM',item:{type:'video',vid,x,y,id}});
@@ -1016,4 +1008,4 @@ function upsertPart(uid,info,label){
 }
 </script>
 </body>
-</html>
+                                                                                                                                                                                        </html>
