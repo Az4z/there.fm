@@ -306,12 +306,35 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 }
 
 /* ── YOUTUBE PANEL ── */
-#ytPanel { width:320px; }
-.ytr { background:var(--card); border:1px solid var(--ridge); border-radius:7px; cursor:pointer; transition:background .15s,transform .12s; overflow:hidden; }
-.ytr:hover { background:var(--hover); transform:translateY(-1px); }
-.ytrt { padding:.5rem .6rem; display:flex; flex-direction:column; gap:.18rem; }
-.ytrtitle { font-size:.78rem; font-weight:500; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.ytrchan { font-size:.7rem; color:var(--ash); }
+#ytPanel{position:fixed;top:0;right:-360px;width:340px;height:100dvh;z-index:3100;
+  background:rgba(10,10,18,.98);backdrop-filter:var(--blur);
+  border-left:1px solid var(--ghost);display:flex;flex-direction:column;
+  transition:right .3s var(--ease);box-shadow:-12px 0 48px rgba(0,0,0,.6)}
+#ytPanel.on{right:0}
+#ytPanel.on ~ #ytOverlay{display:block}
+#ytOverlay{display:none;position:fixed;inset:0;z-index:3099;background:rgba(0,0,0,.45);backdrop-filter:blur(2px)}
+.yth{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1rem;border-bottom:1px solid var(--ghost);flex-shrink:0}
+.yth h2{font-family:'Cinzel',serif;font-size:.88rem;font-weight:600;color:var(--bone);letter-spacing:.07em;display:flex;align-items:center;gap:.45rem}
+.yt-login-bar{display:flex;align-items:center;gap:.6rem;padding:.65rem 1rem;border-bottom:1px solid var(--ghost);flex-shrink:0;min-height:46px}
+.yt-search-bar{display:flex;gap:.4rem;padding:.65rem 1rem;border-bottom:1px solid var(--ghost);flex-shrink:0}
+.yt-search-bar input{flex:1;background:rgba(255,255,255,.06);border:1px solid var(--ridge);border-radius:var(--r);padding:.5rem .75rem;color:var(--bone);font-size:.83rem;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s}
+.yt-search-bar input:focus{border-color:var(--mist)}
+.yt-search-bar input::placeholder{color:var(--shadow)}
+.yt-search-bar button{width:38px;height:38px;flex-shrink:0;border-radius:var(--r);background:var(--crimson);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--bone);transition:opacity .15s}
+.yt-search-bar button:hover{opacity:.8}
+#ytResults{flex:1;overflow-y:auto;padding:.65rem .75rem;display:flex;flex-direction:column;gap:.5rem}
+/* Card horizontal */
+.ytr{display:flex;gap:.6rem;align-items:flex-start;background:rgba(255,255,255,.04);border:1px solid var(--ridge);border-radius:8px;cursor:pointer;transition:background .15s;overflow:hidden;padding:.5rem}
+.ytr:hover{background:rgba(255,255,255,.08)}
+.ytr-thumb{width:110px;min-width:110px;aspect-ratio:16/9;border-radius:5px;overflow:hidden;background:#111;flex-shrink:0}
+.ytr-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.ytr-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:.22rem;padding-top:.1rem}
+.ytr-title{font-size:.78rem;font-weight:500;color:var(--bone);line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ytr-chan{font-size:.68rem;color:var(--ash)}
+.yt-empty{text-align:center;padding:2rem 1rem;color:var(--shadow);font-size:.8rem;font-family:'Cormorant Garamond',serif;font-style:italic}
+/* Mobile: painel ocupa mais largura */
+body.mob #ytPanel{width:min(100vw,360px);right:-100vw}
+body.mob #ytPanel.on{right:0}
 
 /* ── MOBILE APP (webintoapp) ─────────────────────────────
    Aplicado apenas quando body.mob está presente (detectado via JS).
