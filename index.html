@@ -304,6 +304,88 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
   .msgbar{width:calc(100% - 1.5rem)}
   #drawBar{bottom:72px}
 }
+
+/* ── MOBILE APP (webintoapp) ─────────────────────────────
+   Aplicado apenas quando body.mob está presente (mobile detectado via JS).
+   O layout desktop permanece 100% intacto.
+──────────────────────────────────────────────────────── */
+body.mob { -webkit-overflow-scrolling:touch; }
+
+/* Toolbar – alvos de toque maiores */
+body.mob .tbtn { padding:.65rem 1rem; font-size:.86rem; min-height:44px; }
+body.mob .tbtn svg { width:16px; height:16px; }
+body.mob .toolbar:not(.tb-left):not(.tb-right) { padding:.65rem 1rem; gap:.6rem; }
+body.mob .toolbar.tb-left,
+body.mob .toolbar.tb-right { width:56px; }
+body.mob .toolbar.tb-left .tbtn,
+body.mob .toolbar.tb-right .tbtn { width:42px; height:42px; }
+
+/* Header */
+body.mob .rh { padding:.85rem 1.1rem; min-height:58px; }
+body.mob .rtitle { font-size:1.45rem; }
+body.mob .rcode { font-size:.78rem; padding:.38rem .9rem; }
+body.mob .ractions { gap:.55rem; }
+body.mob .tbtn.bg2 { min-height:42px; padding:.5rem .75rem; }
+
+/* Auth */
+body.mob .acard { padding:2.25rem 1.6rem; max-width:100%; }
+body.mob .inp,
+body.mob .mi,
+body.mob .si { padding:1rem 1.15rem; font-size:1rem; min-height:50px; }
+body.mob .btn { min-height:48px; font-size:.94rem; }
+body.mob .pp { width:78px; height:78px; }
+
+/* Landing */
+body.mob .linput { flex-direction:column; gap:.75rem; }
+body.mob .linput input { min-height:50px; font-size:1rem; }
+body.mob .lactions { gap:.75rem; }
+body.mob .lactions .btn { width:100%; }
+
+/* Barra de mensagem */
+body.mob .msgbar { bottom:1.6rem; padding:.6rem .6rem .6rem 1.15rem; border-radius:22px; }
+body.mob .msgbar input { font-size:1rem; min-height:38px; }
+body.mob .gifbtn { width:42px; height:42px; }
+body.mob .gifbtn svg { width:16px; height:16px; }
+
+/* Modais */
+body.mob .mbox { padding:1.75rem 1.3rem; }
+body.mob .mbox h2 { font-size:1.2rem; }
+body.mob .modal { padding:1rem; }
+
+/* Cards de vídeo */
+body.mob .card.vid-card { min-width:min(90vw,340px); }
+body.mob .vctrl { padding:.65rem .85rem; gap:.7rem; }
+body.mob .vcbtn { padding:.5rem; }
+body.mob .vcbtn svg { width:18px; height:18px; }
+
+/* Handle de redimensionamento */
+body.mob .rzh { width:44px; height:44px; opacity:1 !important; }
+body.mob .rzh::after { width:18px; height:18px; }
+
+/* Fechar card */
+body.mob .cx { width:26px; height:26px; font-size:1.1rem; }
+
+/* Painel de participantes */
+body.mob .parts { top:100px; right:.7rem; }
+
+/* Barra de desenho */
+body.mob #drawBar { bottom:100px; padding:.7rem 1rem; gap:.65rem; }
+body.mob .dbbtn { padding:.5rem .8rem; font-size:.83rem; min-height:40px; }
+body.mob .dc { width:28px; height:28px; }
+body.mob #brushSize { width:70px; }
+
+/* Avatar */
+body.mob .av { width:56px; height:56px; font-size:1.2rem; }
+body.mob .av-name { font-size:.7rem; padding:.2rem .55rem; }
+
+/* Configurações */
+body.mob .sbox { padding:1.75rem 1.3rem; }
+
+/* Toast – sobe para não esconder a msgbar */
+body.mob .toast { top:auto; bottom:6rem; right:1rem; }
+
+/* GIF grid menor em mobile */
+body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
 </style>
 </head>
 <body>
@@ -508,6 +590,14 @@ let drawColor='#eae6de', drawHist=[], lastDX=0, lastDY=0;
 
 /* ── INIT ── */
 document.addEventListener('DOMContentLoaded', ()=>{
+  /* ── MOBILE DETECTION (webintoapp) ──
+     Aplica body.mob apenas em dispositivos touch com UA móvel.
+     Desktop permanece sem nenhuma alteração.
+  ── */
+  const isMob = ('ontouchstart' in window) &&
+    /Mobi|Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
+  if(isMob) document.body.classList.add('mob');
+
   buildColors(); buildTbp(); buildDrawColors();
   checkAuth();
   initPointer();
@@ -836,7 +926,10 @@ function initPointer(){
   const disIf=()=>document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='none');
   const enIf= ()=>document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='');
   disIf();
-  document.addEventListener('click',e=>{ if(e.target.closest('.vcbtn')){ enIf(); setTimeout(disIf,800); } });
+  document.addEventListener('click',e=>{ if(e.target.closest('.vcbtn')){ enIf(); setTimeout(disIf,1200); } });
+  /* Em mobile/WebView, touchstart chega antes do click; habilita o iframe
+     a tempo de o YT.Player receber o playVideo() programático. */
+  document.addEventListener('touchstart',e=>{ if(e.target.closest('.vcbtn')){ enIf(); setTimeout(disIf,1500); } },{passive:true});
 
   items.addEventListener('mousedown',e=>{ if(e.button!==0||drawMode)return; if(beginIA(e.target,e.clientX,e.clientY))e.preventDefault(); },{passive:false});
   cap.addEventListener('mousemove',e=>{ if(D||R)move(e.clientX,e.clientY); });
@@ -963,11 +1056,20 @@ function mkVid(vid,x,y,id,container,broadcastIt){
   if(broadcastIt)broadcast({type:'ADD_ITEM',item:{type:'video',vid,x,y,id}});
   setTimeout(()=>initYT(uid,vid,VID_W,VID_H),300);
 }
-function initYT(uid,vid,iw,ih){
-  if(!ytReady){setTimeout(()=>initYT(uid,vid,iw,ih),500);return;}
+function initYT(uid,vid,iw,ih,_retries){
+  _retries=(_retries||0)+1;
+  /* Recuperação: em WebViews o callback onYouTubeIframeAPIReady às vezes não
+     dispara, mas o objeto YT já existe. Tentamos recuperar. */
+  if(!ytReady && window.YT && window.YT.Player){ ytReady=true; }
+  if(!ytReady){
+    if(_retries>40)return; // desiste após ~20s
+    setTimeout(()=>initYT(uid,vid,iw,ih,_retries),500);
+    return;
+  }
   const cont=$('ypc-'+uid); if(!cont||cont.dataset.ytinit)return; cont.dataset.ytinit='1';
   const p=new YT.Player(cont,{width:String(iw||VID_W),height:String(ih||VID_H),videoId:vid,
-    playerVars:{autoplay:0,controls:0,modestbranding:1,rel:0,fs:1,iv_load_policy:3},
+    playerVars:{autoplay:0,controls:0,modestbranding:1,rel:0,fs:1,iv_load_policy:3,
+                playsinline:1,origin:location.hostname||'localhost'},
     events:{
       onReady:()=>{ ytPlrs[uid]=p; setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(p.getCurrentTime()||0);}catch(e){} },800); },
       onStateChange:e=>{ if(e.data===YT.PlayerState.PLAYING)broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:p.getCurrentTime()}); if(e.data===YT.PlayerState.PAUSED)broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:p.getCurrentTime()}); }
