@@ -110,7 +110,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 .lfooter button{color:var(--shadow);font-size:.8rem;background:none;border:none;cursor:pointer;font-family:'Cormorant Garamond',serif;transition:color .2s;touch-action:manipulation}
 .lfooter button:hover{color:var(--ash)}
 
-/* ── ROOM ── */
+/* ── ROOM ───────────────────────────── */
 .room-scene{flex-direction:column;position:fixed;inset:0}
 
 /* Header */
@@ -138,6 +138,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 .tdiv{width:1px;height:20px;background:var(--ridge);flex-shrink:0}
 .toolbar.tb-left .tdiv,.toolbar.tb-right .tdiv{width:28px;height:1px}
 .tgrp{display:flex;gap:.38rem;align-items:center;flex-shrink:0}
+.toolbar.tb-left .tgrp,.toolbar.tb-right .tgrp{flex-direction:column}
 .tbtn{padding:.4rem .68rem;background:rgba(255,255,255,.03);border:1px solid var(--ridge);color:var(--ash);border-radius:var(--r);cursor:pointer;font-weight:500;font-size:.79rem;transition:background .15s,border-color .15s,color .15s,transform .15s;font-family:'DM Sans',sans-serif;white-space:nowrap;display:inline-flex;align-items:center;gap:.28rem;flex-shrink:0;touch-action:manipulation;user-select:none}
 .tbtn:hover{background:rgba(255,255,255,.08);border-color:var(--mist);color:var(--bone)}
 .tbtn:active{transform:scale(.96)}
@@ -147,6 +148,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 /* ── CANVAS ─────────────────────────── */
 .cw{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
 #bgCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+/* drawCanvas always rendered so pixels persist; z-index controls event capture */
 #drawCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;cursor:default}
 #drawCanvas.active{pointer-events:auto;cursor:crosshair;z-index:20}
 #items{position:absolute;inset:0;z-index:10}
@@ -182,9 +184,11 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 .cx:hover{color:var(--crimson);background:var(--cg)}
 .cb{flex:1;min-height:0;padding:.58rem;cursor:grab;overflow:hidden;border-radius:0 0 var(--rm) var(--rm)}
 .cb:active{cursor:grabbing}
+/* Image/GIF */
 .card.img-card,.card.gif-card{background:rgba(6,6,10,.75)}
 .card.img-card .cb,.card.gif-card .cb{padding:0;cursor:default}
 .card.img-card img,.card.gif-card img{width:100%;height:100%;display:block;object-fit:cover}
+/* Video */
 .card.vid-card{min-width:280px}
 .vctrl{display:flex;align-items:center;gap:.48rem;padding:.4rem .62rem;background:rgba(6,6,12,.88);border-top:1px solid var(--ghost);border-radius:0 0 var(--rm) var(--rm);cursor:default;flex-shrink:0}
 .vcbtn{background:none;border:none;color:var(--ash);cursor:pointer;padding:.25rem;border-radius:3px;transition:color .15s,background .15s;display:flex;align-items:center;touch-action:manipulation}
@@ -301,54 +305,28 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
   #drawBar{bottom:72px}
 }
 
-/* ── MOBILE APP (webintoapp) ───────── */
-body.mob { -webkit-overflow-scrolling:touch; }
-body.mob .tbtn { padding:.65rem 1rem; font-size:.86rem; min-height:44px; }
-body.mob .tbtn svg { width:16px; height:16px; }
-body.mob .toolbar:not(.tb-left):not(.tb-right) { padding:.65rem 1rem; gap:.6rem; }
-body.mob .toolbar.tb-left,
-body.mob .toolbar.tb-right { width:56px; }
-body.mob .toolbar.tb-left .tbtn,
-body.mob .toolbar.tb-right .tbtn { width:42px; height:42px; }
-body.mob .rh { padding:.85rem 1.1rem; min-height:58px; }
-body.mob .rtitle { font-size:1.45rem; }
-body.mob .rcode { font-size:.78rem; padding:.38rem .9rem; }
-body.mob .ractions { gap:.55rem; }
-body.mob .tbtn.bg2 { min-height:42px; padding:.5rem .75rem; }
-body.mob .acard { padding:2.25rem 1.6rem; max-width:100%; }
-body.mob .inp,
-body.mob .mi,
-body.mob .si { padding:1rem 1.15rem; font-size:1rem; min-height:50px; }
-body.mob .btn { min-height:48px; font-size:.94rem; }
-body.mob .pp { width:78px; height:78px; }
-body.mob .linput { flex-direction:column; gap:.75rem; }
-body.mob .linput input { min-height:50px; font-size:1rem; }
-body.mob .lactions { gap:.75rem; }
-body.mob .lactions .btn { width:100%; }
-body.mob .msgbar { bottom:1.6rem; padding:.6rem .6rem .6rem 1.15rem; border-radius:22px; }
-body.mob .msgbar input { font-size:1rem; min-height:38px; }
-body.mob .gifbtn { width:42px; height:42px; }
-body.mob .gifbtn svg { width:16px; height:16px; }
-body.mob .mbox { padding:1.75rem 1.3rem; }
-body.mob .mbox h2 { font-size:1.2rem; }
-body.mob .modal { padding:1rem; }
-body.mob .card.vid-card { min-width:min(90vw,340px); }
-body.mob .vctrl { padding:.65rem .85rem; gap:.7rem; }
-body.mob .vcbtn { padding:.5rem; }
-body.mob .vcbtn svg { width:18px; height:18px; }
-body.mob .rzh { width:44px; height:44px; opacity:1 !important; }
-body.mob .rzh::after { width:18px; height:18px; }
-body.mob .cx { width:26px; height:26px; font-size:1.1rem; }
-body.mob .parts { top:100px; right:.7rem; }
-body.mob #drawBar { bottom:100px; padding:.7rem 1rem; gap:.65rem; }
-body.mob .dbbtn { padding:.5rem .8rem; font-size:.83rem; min-height:40px; }
-body.mob .dc { width:28px; height:28px; }
-body.mob #brushSize { width:70px; }
-body.mob .av { width:56px; height:56px; font-size:1.2rem; }
-body.mob .av-name { font-size:.7rem; padding:.2rem .55rem; }
-body.mob .sbox { padding:1.75rem 1.3rem; }
-body.mob .toast { top:auto; bottom:6rem; right:1rem; }
-body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
+/* ── MOBILE APP (webintoapp) ─────────────────────────────
+   Aplicado apenas quando body.mob está presente (detectado via JS).
+   Desktop permanece 100% intacto.
+──────────────────────────────────────────────────────── */
+
+/* Alvos de toque mínimos sem inflar o visual */
+body.mob .tbtn     { min-height:44px; }
+body.mob .btn      { min-height:44px; }
+body.mob .vcbtn    { padding:.45rem; min-width:36px; min-height:36px; }
+body.mob .cx       { width:24px; height:24px; }
+body.mob .gifbtn   { width:38px; height:38px; }
+body.mob .inp, body.mob .mi, body.mob .si { min-height:46px; }
+
+/* Evita zoom automático no iOS (font-size >= 16px) */
+body.mob .inp, body.mob .mi, body.mob .si,
+body.mob .msgbar input, body.mob .linput input { font-size:16px; }
+
+/* Handle de resize sempre visível no touch */
+body.mob .rzh { opacity:1 !important; }
+
+/* Toast não sobrepõe a msgbar */
+body.mob .toast { top:auto; bottom:5.5rem; }
 </style>
 </head>
 <body>
@@ -364,6 +342,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
 
 <div id="capture"></div>
 
+<!-- ── AUTH ── -->
 <div class="scene auth-scene" id="authScene">
   <div class="acard">
     <div class="brand"><h1>there.fm</h1><p>entre para assistir junto</p></div>
@@ -385,6 +364,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
   </div>
 </div>
 
+<!-- ── LANDING ── -->
 <div class="scene landing-scene" id="landingScene">
   <div class="lc">
     <div class="llogo">there.fm</div>
@@ -398,6 +378,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
   </div>
 </div>
 
+<!-- ── ROOM ── -->
 <div class="scene room-scene" id="roomScene">
   <div class="rh">
     <div class="rh-left">
@@ -433,6 +414,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
   </div>
 </div>
 
+<!-- Draw floating toolbar -->
 <div id="drawBar">
   <div class="dbs"><span class="dblbl">Cor</span><div id="drawColors" style="display:flex;gap:.35rem;align-items:center"></div><label style="cursor:pointer;display:flex;align-items:center" title="Personalizar cor"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ash)" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg><input type="color" id="customColor" value="#eae6de" style="width:0;height:0;opacity:0;position:absolute" oninput="setDrawColor(this.value)"></label></div>
   <div class="dbdiv"></div>
@@ -447,6 +429,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
   </div>
 </div>
 
+<!-- Msg bar -->
 <div class="msgbar" id="msgbar">
   <input type="text" id="msgInput" placeholder="Mensagem..." maxlength="200" onkeydown="handleMsgKey(event)">
   <div class="gifbtn" onclick="openGifPicker('chat')" title="Enviar GIF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h4m0 0v-2m0 2v2M16 8v8"/></svg></div>
@@ -455,6 +438,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
 
 <div class="parts" id="parts"><div class="ph">Participantes</div><div id="partsList"></div></div>
 
+<!-- GIF modal -->
 <div class="modal" id="gifModal">
   <div class="mbox">
     <h2>Buscar GIF · Tenor</h2>
@@ -467,6 +451,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
   </div>
 </div>
 
+<!-- Image modal -->
 <div class="modal" id="imageModal">
   <div class="mbox">
     <h2>Adicionar Imagem</h2><p>Selecione uma imagem da sua galeria.</p>
@@ -481,6 +466,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
   </div>
 </div>
 
+<!-- Video modal -->
 <div class="modal" id="videoModal">
   <div class="mbox">
     <h2>Adicionar Vídeo · YouTube</h2>
@@ -490,6 +476,7 @@ body.mob .gg { grid-template-columns:repeat(auto-fill,minmax(80px,1fr)); }
   </div>
 </div>
 
+<!-- Settings -->
 <div class="sp" id="settingsPanel">
   <div class="sbox">
     <h2>⚙ Configurações</h2>
@@ -517,14 +504,14 @@ const TENOR_KEY = 'LIVDSRZULELA';
 const COLORS     = ['#c45c5c','#5c7ec4','#5cc47e','#c4a05c','#9b5cc4','#5cc4c4','#c45ca0','#8a9098'];
 const DRAWCOLORS = ['#eae6de','#c45c5c','#5c7ec4','#5cc47e','#c4a05c','#f97316','#9b5cc4','#000000'];
 const TBPOS      = [{k:'top',l:'↑ Topo'},{k:'bottom',l:'↓ Base'},{k:'left',l:'← Esq'},{k:'right',l:'→ Dir'}];
-const HEAD=32, CTRL=40, VID_W=460, VID_H=258;
+const HEAD=32, CTRL=40, VID_W=460, VID_H=258; // video card dimensions
 
 /* ── STATE ── */
 let U        = {name:'',email:'',photo:'',id:'',color:'#c45c5c'};
 let room     = null;
 let els      = [];
 let peers    = {};
-let ytPlrs   = {};
+let ytPlrs   = {};  // uid -> YT.Player
 let ytReady  = false;
 let gifMode  = 'canvas';
 let tbPos    = 'top';
@@ -533,7 +520,7 @@ let zTop     = 10;
 let hbTimer  = null;
 let _supa    = null;
 let _ch      = null;
-let channel  = null;
+let channel  = null; // alias for _ch
 
 /* drag/resize */
 let D=null, R=null, raf=null, px=0,py=0,pw=0,ph=0;
@@ -544,6 +531,10 @@ let drawColor='#eae6de', drawHist=[], lastDX=0, lastDY=0;
 
 /* ── INIT ── */
 document.addEventListener('DOMContentLoaded', ()=>{
+  /* ── MOBILE DETECTION (webintoapp) ──
+     Aplica body.mob apenas em dispositivos touch com UA móvel.
+     Desktop permanece sem nenhuma alteração.
+  ── */
   const isMob = ('ontouchstart' in window) &&
     /Mobi|Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
   if(isMob) document.body.classList.add('mob');
@@ -564,7 +555,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   setTimeout(()=>{ const el=document.getElementById('intro'); el.classList.add('out'); setTimeout(()=>el.remove(),750); }, 3300);
 });
-
 function onYouTubeIframeAPIReady(){ ytReady=true; }
 
 /* ── HELPERS ── */
@@ -658,12 +648,14 @@ function enterRoom(){
   $('items').innerHTML=''; $('partsList').innerHTML='';
   $('parts').classList.remove('on');
   els=[]; ytPlrs={}; peers={}; zTop=10;
+  // Reset draw state
   drawMode=false; drawing=false; eraser=false; drawHist=[];
   $('drawCanvas').classList.remove('active');
   $('drawBtn').classList.remove('active');
   $('drawBar').classList.remove('on');
   $('items').style.pointerEvents='';
   $('drawCanvas').getContext('2d').clearRect(0,0,$('drawCanvas').width,$('drawCanvas').height);
+  // Toolbar position
   const pos=localStorage.getItem('tfm_tb')||'top'; tbPos=pos;
   const rs=$('roomScene'),rb=$('rbody'),tb=$('toolbar');
   if(tb.parentNode)tb.parentNode.removeChild(tb); rs.insertBefore(tb,rb); applyTbPos(pos);
@@ -672,6 +664,7 @@ function enterRoom(){
   openChannel(room.code);
   startHB();
   goRoom();
+  // Init drawCanvas size AFTER scene is visible (double rAF ensures layout is complete)
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const dc=$('drawCanvas'),cw=$('cw');
     if(dc&&cw&&cw.clientWidth>0){ dc.width=cw.clientWidth; dc.height=cw.clientHeight; }
@@ -856,9 +849,11 @@ function initDraw(){
     lastDX=p.x; lastDY=p.y;
   }
   function onUp(){ drawing=false; }
+  // Mouse: start on canvas, continue on document
   dc.addEventListener('mousedown',onDown,{passive:false});
   document.addEventListener('mousemove',e=>{if(drawMode&&drawing)onMove(e);},{passive:false});
   document.addEventListener('mouseup',onUp);
+  // Touch: capture phase so it beats initPointer's bubble listeners
   dc.addEventListener('touchstart',e=>{if(!drawMode||e.touches.length!==1)return; e.preventDefault(); e.stopPropagation(); onDown(e);},{passive:false,capture:true});
   document.addEventListener('touchmove',e=>{if(!drawMode||!drawing||e.touches.length!==1)return; e.preventDefault(); onMove(e);},{passive:false,capture:true});
   document.addEventListener('touchend',()=>{if(drawing)onUp();},{capture:true});
@@ -867,10 +862,14 @@ function initDraw(){
 /* ── POINTER (drag + resize) ── */
 function initPointer(){
   const items=$('items'),cap=$('capture');
+  // Keep iframes pointer-events:none so rzh handle always works
+  // Re-enable briefly on vcbtn click so YT can process it
   const disIf=()=>document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='none');
   const enIf= ()=>document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='');
   disIf();
   document.addEventListener('click',e=>{ if(e.target.closest('.vcbtn')){ enIf(); setTimeout(disIf,1200); } });
+  /* Em mobile/WebView, touchstart chega antes do click; habilita o iframe
+     a tempo de o YT.Player receber o playVideo() programático. */
   document.addEventListener('touchstart',e=>{ if(e.target.closest('.vcbtn')){ enIf(); setTimeout(disIf,1500); } },{passive:true});
 
   items.addEventListener('mousedown',e=>{ if(e.button!==0||drawMode)return; if(beginIA(e.target,e.clientX,e.clientY))e.preventDefault(); },{passive:false});
@@ -998,8 +997,40 @@ function mkVid(vid,x,y,id,container,broadcastIt){
   if(broadcastIt)broadcast({type:'ADD_ITEM',item:{type:'video',vid,x,y,id}});
   setTimeout(()=>initYT(uid,vid,VID_W,VID_H),300);
 }
-
 function initYT(uid,vid,iw,ih,_retries){
+  /* ── MOBILE (webintoapp): iframe direto + postMessage ──────────────────
+     WebViews Android/iOS bloqueiam o callback onYouTubeIframeAPIReady com
+     frequência. Em vez de depender do YT IFrame API, criamos o <iframe>
+     diretamente com ?enablejsapi=1 e usamos postMessage para controle.
+     O objeto ytPlrs[uid] expõe a mesma interface que YT.Player.
+  ─────────────────────────────────────────────────────────────────────── */
+  if(document.body.classList.contains('mob')){
+    const cont=$('ypc-'+uid); if(!cont||cont.dataset.ytinit)return; cont.dataset.ytinit='1';
+    const origin=location.origin||('https://'+location.hostname)||'https://localhost';
+    const src=`https://www.youtube.com/embed/${vid}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&controls=0&iv_load_policy=3&origin=${encodeURIComponent(origin)}`;
+    const ifr=document.createElement('iframe');
+    ifr.src=src; ifr.width=String(iw||VID_W); ifr.height=String(ih||VID_H);
+    ifr.style.cssText='border:none;display:block;width:100%;height:100%;';
+    ifr.allow='autoplay; fullscreen; encrypted-media; picture-in-picture';
+    ifr.allowFullscreen=true; ifr.setAttribute('playsinline','');
+    cont.appendChild(ifr);
+    let _t=0; // tempo local aproximado
+    const msg=(func,args)=>{ try{ ifr.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args||''}), '*'); }catch(e){} };
+    ytPlrs[uid]={
+      playVideo (){ msg('playVideo'); },
+      pauseVideo(){ msg('pauseVideo'); },
+      seekTo    (t){ _t=t; msg('seekTo',[t,true]); },
+      getCurrentTime(){ return _t; },
+      setSize   (w,h){ ifr.width=String(w); ifr.height=String(h); }
+    };
+    // Atualiza _t via mensagens do iframe
+    window.addEventListener('message',e=>{
+      try{ const d=JSON.parse(e.data); if(d.info?.currentTime!=null) _t=d.info.currentTime; }catch(e){}
+    });
+    return;
+  }
+
+  /* ── DESKTOP: YT IFrame API padrão ──────────────────────────────────── */
   _retries=(_retries||0)+1;
   if(!ytReady && window.YT && window.YT.Player){ ytReady=true; }
   if(!ytReady){
@@ -1009,8 +1040,7 @@ function initYT(uid,vid,iw,ih,_retries){
   }
   const cont=$('ypc-'+uid); if(!cont||cont.dataset.ytinit)return; cont.dataset.ytinit='1';
   const p=new YT.Player(cont,{width:String(iw||VID_W),height:String(ih||VID_H),videoId:vid,
-    playerVars:{autoplay:0,controls:0,modestbranding:1,rel:0,fs:1,iv_load_policy:3,
-                playsinline:1,origin:location.hostname||'localhost'},
+    playerVars:{autoplay:0,controls:0,modestbranding:1,rel:0,fs:1,iv_load_policy:3,playsinline:1},
     events:{
       onReady:()=>{ ytPlrs[uid]=p; setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(p.getCurrentTime()||0);}catch(e){} },800); },
       onStateChange:e=>{ if(e.data===YT.PlayerState.PLAYING)broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:p.getCurrentTime()}); if(e.data===YT.PlayerState.PAUSED)broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:p.getCurrentTime()}); }
@@ -1051,4 +1081,4 @@ function upsertPart(uid,info,label){
 }
 </script>
 </body>
-</html>
+  </html>
