@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#06060a">
 <title>there.fm</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,8 +59,8 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 @keyframes iOut{to{opacity:0;transform:scale(1.05)}}
 
 /* ── SCENES ─────────────────────────── */
-.scene{position:fixed;inset:0;z-index:10;display:flex;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .4s var(--ease),visibility .4s}
-.scene.active{visibility:visible;opacity:1;pointer-events:auto}
+.scene{position:fixed;inset:0;z-index:10;display:none;opacity:0;transition:opacity .4s var(--ease)}
+.scene.active{display:flex;opacity:1}
 
 /* ── SHARED ─────────────────────────── */
 .inp,.mi,.si{width:100%;padding:.88rem 1.1rem;background:rgba(0,0,0,.38);border:1px solid var(--ridge);border-radius:var(--rm);color:var(--bone);font-family:'DM Sans',sans-serif;font-size:.92rem;transition:border-color .2s,box-shadow .2s;outline:none}
@@ -79,8 +79,8 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 .asw a{color:var(--gold);cursor:pointer}.asw a:hover{text-decoration:underline}
 
 /* ── AUTH ───────────────────────────── */
-.auth-scene{justify-content:center;align-items:center;padding:2rem;flex-direction:column}
-.landing-scene{justify-content:center;align-items:center;padding:2rem;flex-direction:column}.acard{width:100%;max-width:410px;background:var(--glass);backdrop-filter:var(--blur);border:1px solid var(--ghost);border-radius:var(--rxl);padding:2.75rem 2.4rem;position:relative;overflow:hidden;animation:cardIn .8s var(--ease) both}
+.auth-scene{justify-content:center;align-items:center;padding:2rem}
+.acard{width:100%;max-width:410px;background:var(--glass);backdrop-filter:var(--blur);border:1px solid var(--ghost);border-radius:var(--rxl);padding:2.75rem 2.4rem;position:relative;overflow:hidden;animation:cardIn .8s var(--ease) both}
 .acard::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.4}
 @keyframes cardIn{from{opacity:0;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
 .brand{text-align:center;margin-bottom:2.25rem}
@@ -96,7 +96,8 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 .pp input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
 .pp-lbl{font-size:.68rem;color:var(--shadow);font-family:'Cormorant Garamond',serif;font-style:italic}
 
-/* ── LANDING ─────────────────────────── */
+/* ── LANDING ────────────────────────── */
+.landing-scene{justify-content:center;align-items:center;padding:2rem}
 .lc{max-width:460px;width:100%;text-align:center;animation:iUp .8s var(--ease) both}
 .llogo{font-family:'UnifrakturMaguntia',cursive;font-size:clamp(2.8rem,10vw,4.5rem);color:var(--bone);margin-bottom:.65rem;animation:glow 5s ease-in-out infinite}
 .ltag{font-family:'Cormorant Garamond',serif;font-size:1.06rem;font-weight:300;font-style:italic;color:var(--dust);margin-bottom:2.25rem;line-height:1.8;letter-spacing:.03em}
@@ -199,10 +200,11 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 
 /* ── RESIZE HANDLE ──────────────────── */
-.rzh{position:absolute;bottom:4px;right:4px;width:32px;height:32px;display:flex;align-items:flex-end;justify-content:flex-end;cursor:se-resize;touch-action:none;z-index:30;opacity:0;transition:opacity .18s;pointer-events:all}
+.rzh{position:absolute;bottom:4px;right:4px;width:44px;height:44px;display:flex;align-items:flex-end;justify-content:flex-end;cursor:se-resize;touch-action:none;z-index:30;opacity:0;transition:opacity .18s;pointer-events:all}
 .rzh::after{content:'';width:12px;height:12px;background:var(--crimson);border:2px solid rgba(234,230,222,.9);border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,.5);transition:transform .15s;display:block}
 .card:hover .rzh,.card.sel .rzh{opacity:1}
 .rzh:active::after{transform:scale(1.2)}
+@media (hover:none){.rzh{opacity:.72!important}}
 
 /* ── CAPTURE OVERLAY ────────────────── */
 #capture{display:none;position:fixed;inset:0;z-index:8000;background:transparent}
@@ -289,19 +291,6 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 .plbl{display:inline-flex;align-items:center;gap:.45rem;padding:.78rem 1.3rem;background:linear-gradient(135deg,var(--crimson),#9a3535);color:var(--bone);border-radius:var(--rm);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.86rem;font-weight:500;box-shadow:0 4px 20px rgba(196,92,92,.22);transition:transform .2s,box-shadow .2s;user-select:none}
 .plbl:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(196,92,92,.32)}
 
-/* ── SAFE AREA (iPhone notch/home bar) ── */
-@supports(padding-bottom: env(safe-area-inset-bottom)){
-  .msgbar{bottom:calc(.7rem + env(safe-area-inset-bottom));}
-  .toolbar.tb-bottom{padding-bottom:calc(.5rem + env(safe-area-inset-bottom));}
-  #drawBar{bottom:calc(80px + env(safe-area-inset-bottom));}
-}
-@media(max-width:680px){
-  @supports(padding-bottom: env(safe-area-inset-bottom)){
-    .msgbar{bottom:calc(.7rem + env(safe-area-inset-bottom));}
-    #drawBar{bottom:calc(60px + env(safe-area-inset-bottom));}
-  }
-}
-
 /* ── SCROLLBAR ──────────────────────── */
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -310,64 +299,11 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 
 /* ── RESPONSIVE ─────────────────────── */
 @media(max-width:680px){
-  .llogo{font-size:2.4rem}
-  .ltag{font-size:.92rem}
-  .acard{padding:2rem 1.4rem}
-  .brand h1{font-size:2.2rem}
-
-  /* Header compacto */
-  .rh{padding:.45rem .75rem;gap:.45rem}
-  .rtitle{font-size:1.05rem}
-  .rcode{font-size:.65rem;padding:.22rem .55rem}
-  .conn{font-size:.6rem}
-  .ractions .btn.bsm{padding:.38rem .65rem;font-size:.75rem}
-
-  /* Toolbar compacta */
-  .toolbar{padding:.38rem .6rem;gap:.32rem}
-  .tbtn{padding:.32rem .5rem;font-size:.72rem;gap:.2rem}
-  .tbtn svg{width:12px;height:12px}
-  .tlbl{font-size:.55rem}
-
-  /* Cards menores no mobile */
-  .card{min-width:0}
-  .card.vid-card{width:min(320px, calc(100vw - 2rem))!important;height:auto!important}
-  .card.gif-card{width:160px!important;height:150px!important}
-  .card.img-card{width:170px!important;height:155px!important}
-  .ch{padding:.28rem .5rem}
-  .ct{font-size:.5rem}
-
-  /* Msgbar */
-  .msgbar{width:calc(100% - 1rem);bottom:.7rem;padding:.32rem .32rem .32rem .72rem}
-  .msgbar input{font-size:.82rem}
-
-  /* Draw bar */
-  #drawBar{bottom:60px;padding:.42rem .55rem;gap:.38rem}
-  .dblbl{font-size:.56rem}
-  #brushSize{width:60px}
-  #brushOpacity{width:48px}
-  .dc{width:18px;height:18px}
-
-  /* Participantes */
-  .parts{right:.5rem;top:90px;max-width:165px}
-
-  /* Modal */
-  .mbox{padding:1.2rem}
-  .gg{grid-template-columns:repeat(auto-fill,minmax(80px,1fr));max-height:240px}
-
-  /* Avatar menor */
-  .av{width:40px;height:40px;font-size:.95rem}
-  .av-name{font-size:.56rem;margin-top:5px}
-}
-
-@media(max-width:400px){
-  .card.vid-card{width:calc(100vw - 1.5rem)!important}
-  .card.gif-card{width:130px!important;height:125px!important}
-  .card.img-card{width:140px!important;height:130px!important}
-  .toolbar{gap:.22rem}
-  .tbtn span{display:none}
-  .tbtn{padding:.32rem .4rem}
-  .tlbl{display:none}
-  .tdiv{display:none}
+  .llogo{font-size:2.6rem}
+  .card.vid-card{width:100%!important}
+  .parts{right:.5rem;top:96px;max-width:172px}
+  .msgbar{width:calc(100% - 1.5rem)}
+  #drawBar{bottom:72px}
 }
 </style>
 </head>
@@ -546,10 +482,7 @@ const TENOR_KEY = 'LIVDSRZULELA';
 const COLORS     = ['#c45c5c','#5c7ec4','#5cc47e','#c4a05c','#9b5cc4','#5cc4c4','#c45ca0','#8a9098'];
 const DRAWCOLORS = ['#eae6de','#c45c5c','#5c7ec4','#5cc47e','#c4a05c','#f97316','#9b5cc4','#000000'];
 const TBPOS      = [{k:'top',l:'↑ Topo'},{k:'bottom',l:'↓ Base'},{k:'left',l:'← Esq'},{k:'right',l:'→ Dir'}];
-const HEAD=32, CTRL=40;
-// Video card dimensions — responsive to screen width
-const VID_W = Math.min(460, window.innerWidth > 680 ? 460 : Math.min(320, window.innerWidth - 32));
-const VID_H = Math.round(VID_W * 9/16);
+const HEAD=32, CTRL=40, VID_W=460, VID_H=258; // video card dimensions
 
 /* ── STATE ── */
 let U        = {name:'',email:'',photo:'',id:'',color:'#c45c5c'};
@@ -622,23 +555,11 @@ function handlePhoto(input,form){
 }
 
 /* ── AUTH ── */
-function checkAuth(){
-  try{
-    const s=localStorage.getItem('tfm_u');
-    if(s){ const parsed=JSON.parse(s); if(parsed&&parsed.id){ U=parsed; goLanding(); return; } }
-  }catch(e){ console.warn('localStorage unavailable:',e); }
-  goAuth();
-}
+function checkAuth(){ try{ const s=localStorage.getItem('tfm_u'); if(s){U=JSON.parse(s);goLanding();}else goAuth(); }catch{goAuth();} }
 function goAuth(){ setScene('authScene'); $('msgbar').classList.remove('show'); }
 function goLanding(){ setScene('landingScene'); $('msgbar').classList.remove('show'); }
 function goRoom(){ setScene('roomScene'); $('msgbar').classList.add('show'); }
-function setScene(id){
-  document.querySelectorAll('.scene').forEach(s=>s.classList.remove('active'));
-  const target=$(id);
-  if(!target)return;
-  // rAF ensures the browser processes visibility:hidden → visible before opacity transition
-  requestAnimationFrame(()=>{ target.classList.add('active'); });
-}
+function setScene(id){ document.querySelectorAll('.scene').forEach(s=>s.classList.remove('active')); $(id).classList.add('active'); }
 function toSignup(){ $('loginForm').style.display='none'; $('signupForm').style.display='flex'; }
 function toLogin(){ $('signupForm').style.display='none'; $('loginForm').style.display='flex'; }
 function doLogin(){
@@ -654,7 +575,7 @@ function doSignup(){
   U.name=n; U.email=e; U.id='u'+Date.now(); saveU(); toast('Bem-vindo, '+n,'ok'); goLanding();
 }
 function doLogout(){ if(!confirm('Sair da conta?'))return; localStorage.removeItem('tfm_u'); location.reload(); }
-function saveU(){ try{ localStorage.setItem('tfm_u',JSON.stringify(U)); }catch(e){ console.warn('Could not save user data:',e); } }
+function saveU(){ localStorage.setItem('tfm_u',JSON.stringify(U)); }
 
 /* ── SETTINGS ── */
 function buildColors(){
@@ -855,7 +776,7 @@ function applyState(msg){
 function applyAdd(item){ if(!item||qs('[data-item-id="'+item.id+'"]'))return; const c=$('items'); if(item.type==='gif')mkGif(item.src,item.x,item.y,item.id,c,false); else if(item.type==='image')mkImg(item.src,item.x,item.y,item.id,c,false); else if(item.type==='video')mkVid(item.vid,item.x,item.y,item.id,c,false); }
 function applyRm(id){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.remove();els=els.filter(e=>e!==el);} }
 function applyMv(id,x,y){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.left=x+'px';el.style.top=y+'px';} }
-function applyRz(id,w,h){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.width=w+'px';el.style.height=h+'px'; const uid=el.dataset.ytuid; if(uid){const ypc=$('ypc-'+uid);if(ypc){ypc.style.width=w+'px';ypc.style.height=Math.max(80,h-HEAD-CTRL)+'px';} const p=ytPlrs[uid];if(p&&p.setSize)p.setSize(Math.round(w),Math.max(80,Math.round(h)-HEAD-CTRL));}} }
+function applyRz(id,w,h){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.width=w+'px';el.style.height=h+'px'; const uid=el.dataset.ytuid; if(uid){const vidW=Math.round(w),vidH=Math.max(80,Math.round(h)-HEAD-CTRL);const ypc=$('ypc-'+uid);if(ypc){ypc.style.width=vidW+'px';ypc.style.height=vidH+'px';ypc.style.maxWidth='100%';const iframe=ypc.querySelector('iframe');if(iframe){iframe.style.width=vidW+'px';iframe.style.height=vidH+'px';iframe.style.maxWidth='100%';}} const p=ytPlrs[uid];if(p&&p.setSize)p.setSize(vidW,vidH);}} }
 function applyVS(uid,action,time){ const p=ytPlrs[uid]; if(!p)return; try{if(Math.abs(p.getCurrentTime()-time)>1.5)p.seekTo(time,true);if(action==='play')p.playVideo();else if(action==='pause')p.pauseVideo();}catch(e){} }
 
 /* ── DRAW ── */
@@ -925,7 +846,10 @@ function initPointer(){
   document.addEventListener('mouseup',()=>endIA());
 
   let tid=null;
-  items.addEventListener('touchstart',e=>{ if(drawMode||e.touches.length!==1)return; const t=e.touches[0]; tid=t.identifier; if(beginIA(t.target,t.clientX,t.clientY)){e.preventDefault();e.stopPropagation();} },{passive:false});
+  items.addEventListener('touchstart',e=>{ if(drawMode||e.touches.length!==1)return; const t=e.touches[0]; tid=t.identifier;
+    // Use elementFromPoint for precise hit-test so .rzh (position:absolute outside card flow) is detected correctly
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    if(beginIA(el||t.target,t.clientX,t.clientY)){e.preventDefault();e.stopPropagation();} },{passive:false});
   document.addEventListener('touchmove',e=>{ if(!D&&!R)return; const t=Array.from(e.touches).find(x=>x.identifier===tid); if(!t)return; move(t.clientX,t.clientY); e.preventDefault(); },{passive:false});
   document.addEventListener('touchend',()=>{ tid=null; endIA(); });
   $('cw').addEventListener('mousedown',e=>{ if(!e.target.closest('.card,.av-wrap'))deselect(); });
@@ -964,8 +888,12 @@ function move(cx,cy){
       const uid=R.el.dataset.ytuid;
       if(uid){
         const vidW=Math.round(pw),vidH=Math.max(80,Math.round(ph)-HEAD-CTRL);
-        const ypc=$('ypc-'+uid); if(ypc){ypc.style.width=vidW+'px';ypc.style.height=vidH+'px';}
+        const ypc=$('ypc-'+uid);
+        if(ypc){ypc.style.width=vidW+'px';ypc.style.height=vidH+'px';ypc.style.maxWidth='100%';}
         const p=ytPlrs[uid]; if(p&&p.setSize)p.setSize(vidW,vidH);
+        // Also clamp the iframe itself so it never overflows
+        const iframe=ypc&&ypc.querySelector('iframe');
+        if(iframe){iframe.style.width=vidW+'px';iframe.style.height=vidH+'px';iframe.style.maxWidth='100%';}
       }
       raf=null;
     });
@@ -1037,7 +965,7 @@ function mkVid(vid,x,y,id,container,broadcastIt){
   const uid='ytp_'+id;
   const w=document.createElement('div'); w.className='card vid-card'; w.dataset.type='video'; w.dataset.vid=vid; w.dataset.itemId=id; w.dataset.ytuid=uid;
   Object.assign(w.style,{position:'absolute',left:x+'px',top:y+'px',zIndex:++zTop,width:VID_W+'px',height:(HEAD+VID_H+CTRL)+'px',display:'flex',flexDirection:'column'});
-  w.innerHTML=`<div class="ch" style="height:${HEAD}px;flex-shrink:0"><span class="ct">▶ YouTube</span><div style="display:flex;align-items:center;gap:.38rem"><span class="vsync">SYNC</span><button class="cx" onclick="removeEl(this.closest('.card'))">×</button></div></div><div id="ypc-${uid}" style="flex-shrink:0;width:${VID_W}px;height:${VID_H}px;background:#000;overflow:hidden"></div><div class="vctrl" style="height:${CTRL}px;flex-shrink:0"><button class="vcbtn" onclick="vPlay('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg></button><button class="vcbtn" onclick="vPause('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',-10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 100-.49"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 110-.49"/></svg></button><span class="vtime" id="vt-${uid}">0:00</span></div>`;
+  w.innerHTML=`<div class="ch" style="height:${HEAD}px;flex-shrink:0"><span class="ct">▶ YouTube</span><div style="display:flex;align-items:center;gap:.38rem"><span class="vsync">SYNC</span><button class="cx" onclick="removeEl(this.closest('.card'))">×</button></div></div><div id="ypc-${uid}" style="flex-shrink:0;width:${VID_W}px;height:${VID_H}px;background:#000;overflow:hidden;max-width:100%"></div><div class="vctrl" style="height:${CTRL}px;flex-shrink:0"><button class="vcbtn" onclick="vPlay('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg></button><button class="vcbtn" onclick="vPause('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',-10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 100-.49"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 110-.49"/></svg></button><span class="vtime" id="vt-${uid}">0:00</span></div>`;
   const rzh=document.createElement('div'); rzh.className='rzh'; w.appendChild(rzh);
   container.appendChild(w); els.push(w);
   if(broadcastIt)broadcast({type:'ADD_ITEM',item:{type:'video',vid,x,y,id}});
