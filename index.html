@@ -948,7 +948,7 @@ function applyAdd(item){ if(!item||qs('[data-item-id="'+item.id+'"]'))return; co
 function applyRm(id){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.remove();els=els.filter(e=>e!==el);} }
 function applyMv(id,x,y){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.left=x+'px';el.style.top=y+'px';} }
 function applyRz(id,w,h){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.width=w+'px';el.style.height=h+'px'; const uid=el.dataset.ytuid; if(uid){const ypc=$('ypc-'+uid);if(ypc){ypc.style.width=w+'px';ypc.style.height=Math.max(80,h-HEAD-CTRL)+'px';} const p=ytPlrs[uid];if(p&&p.setSize)p.setSize(Math.round(w),Math.max(80,Math.round(h)-HEAD-CTRL));}} }
-function applyVS(uid,action,time){ const p=ytPlrs[uid]; if(!p)return; try{if(Math.abs(p.getCurrentTime()-time)>1.5)p.seekTo(time,true);if(action==='play')p.playVideo();else if(action==='pause')p.pauseVideo();}catch(e){} }
+function applyVS(uid,action,time){ const p=ytPlrs[uid]; if(!p)return; try{ p.setSyncing(true); if(Math.abs(p.getCurrentTime()-time)>1.5)p.seekTo(time,true); if(action==='play')p.playVideo(); else if(action==='pause')p.pauseVideo(); }catch(e){} }
 
 /* ── DRAW ── */
 function buildDrawColors(){
@@ -1139,90 +1139,70 @@ function mkVid(vid,x,y,id,container,broadcastIt){
   if(broadcastIt)broadcast({type:'ADD_ITEM',item:{type:'video',vid,x,y,id}});
   setTimeout(()=>initYT(uid,vid,VID_W,VID_H),300);
 }
-function initYT(uid,vid,iw,ih,_retries){
-  /* ── MOBILE (webintoapp): controles nativos do YouTube ─────────────────
-     Android WebView bloqueia postMessage playVideo() sem gesto direto do
-     usuário. Solução: controls=1 (o botão ▶ nativo do YouTube é o gesto),
-     pointer-events sempre ativo no iframe, e sincronização via onStateChange.
+function initYT(uid,vid,iw,ih){
+  /* ── iframe + postMessage (desktop e mobile) ────────────────────────────
+     Não usa new YT.Player() — evita tela preta causada pelo player
+     "chromeless" (controls:0) em domínios não registrados no Cloud Console.
+     Mobile: controls=1 (gesto nativo preservado no WebView).
+     Desktop: controls=0 (controles customizados da .vctrl).
   ─────────────────────────────────────────────────────────────────────── */
-  if(document.body.classList.contains('mob')){
-    const cont=$('ypc-'+uid); if(!cont||cont.dataset.ytinit)return; cont.dataset.ytinit='1';
-    const origin=encodeURIComponent(location.origin||('https://'+location.hostname)||'https://localhost');
-    const src=`https://www.youtube.com/embed/${vid}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&controls=1&iv_load_policy=3&origin=${origin}`;
-    const ifr=document.createElement('iframe');
-    ifr.src=src;
-    ifr.width=String(iw||VID_W); ifr.height=String(ih||VID_H);
-    // pointer-events:auto sempre — usuário toca direto no YouTube (gesto preservado)
-    ifr.style.cssText='border:none;display:block;width:100%;height:100%;pointer-events:auto;';
-    ifr.allow='autoplay; fullscreen; encrypted-media; picture-in-picture';
-    ifr.allowFullscreen=true; ifr.setAttribute('playsinline','');
-    cont.appendChild(ifr);
-
-    let _base=0, _playing=false, _wall=0, _ready=false;
-    const _q=[];
-
-    const msg=(func,args)=>{
-      try{ ifr.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args??''}), '*'); }catch(e){}
-    };
-    // Executa imediatamente se pronto, ou enfileira
-    const exec=(func,args)=>{ if(_ready) msg(func,args); else _q.push(()=>msg(func,args)); };
-
-    window.addEventListener('message',ev=>{
-      try{
-        const d=JSON.parse(ev.data);
-        if(d.event==='onReady'){
-          _ready=true; msg('addEventListener',['onStateChange']); msg('addEventListener',['onVideoData']);
-          _q.forEach(fn=>fn()); _q.length=0;
-        }
-        if(d.event==='onStateChange'){
-          const s=d.info;
-          if(s===1){ // PLAYING — só agora o contador começa
-            _wall=Date.now(); _playing=true;
-            broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:proxy.getCurrentTime()});
-          } else if(s===2||s===0){ // PAUSED / ENDED
-            _base=proxy.getCurrentTime(); _playing=false;
-            broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:_base});
-          }
-        }
-        // Atualiza base quando pausado (infoDelivery com currentTime)
-        if(!_playing && d.info?.currentTime!=null) _base=d.info.currentTime;
-      }catch(e){}
-    });
-
-    // Subscreve ao onReady após o iframe carregar
-    setTimeout(()=>msg('addEventListener',['onReady']), 800);
-
-    const proxy={
-      playVideo (){ exec('playVideo');  },
-      pauseVideo(){ exec('pauseVideo'); },
-      seekTo    (t,b){ _base=t; _wall=Date.now(); exec('seekTo',[t,b??true]); },
-      getCurrentTime(){ return _playing ? _base+(Date.now()-_wall)/1000 : _base; },
-      setSize   (w,h){ ifr.width=String(w); ifr.height=String(h); }
-    };
-    ytPlrs[uid]=proxy;
-    setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(proxy.getCurrentTime());}catch(e){}; },500);
-    return;
-  }
-
-  /* ── DESKTOP: YT IFrame API padrão ──────────────────────────────────── */
-  _retries=(_retries||0)+1;
-  if(!ytReady && window.YT && window.YT.Player){ ytReady=true; }
-  if(!ytReady){
-    if(_retries>40)return;
-    setTimeout(()=>initYT(uid,vid,iw,ih,_retries),500);
-    return;
-  }
   const cont=$('ypc-'+uid); if(!cont||cont.dataset.ytinit)return; cont.dataset.ytinit='1';
-  const p=new YT.Player(cont,{width:String(iw||VID_W),height:String(ih||VID_H),videoId:vid,
-    playerVars:{autoplay:0,controls:0,modestbranding:1,rel:0,fs:1,iv_load_policy:3,playsinline:1},
-    events:{
-      onReady:()=>{ ytPlrs[uid]=p; setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(p.getCurrentTime()||0);}catch(e){} },500); },
-      onStateChange:e=>{ if(e.data===YT.PlayerState.PLAYING)broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:p.getCurrentTime()}); if(e.data===YT.PlayerState.PAUSED)broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:p.getCurrentTime()}); }
-    }});
+  const isMobCtx=document.body.classList.contains('mob');
+  const controls=isMobCtx?'1':'0';
+  const origin=encodeURIComponent(location.origin||('https://'+location.hostname)||'https://localhost');
+  const src=`https://www.youtube.com/embed/${vid}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&controls=${controls}&iv_load_policy=3&origin=${origin}`;
+  const ifr=document.createElement('iframe');
+  ifr.src=src;
+  ifr.style.cssText='border:none;display:block;width:100%;height:100%;pointer-events:auto;';
+  ifr.allow='autoplay; fullscreen; encrypted-media; picture-in-picture';
+  ifr.allowFullscreen=true; ifr.setAttribute('playsinline','');
+  cont.appendChild(ifr);
+
+  let _base=0, _playing=false, _wall=0, _ready=false, _syncing=false;
+  const _q=[];
+
+  const msg=(func,args)=>{
+    try{ ifr.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args??''}), '*'); }catch(e){}
+  };
+  const exec=(func,args)=>{ if(_ready) msg(func,args); else _q.push(()=>msg(func,args)); };
+
+  window.addEventListener('message',ev=>{
+    try{
+      const d=JSON.parse(ev.data);
+      if(d.event==='onReady'){
+        _ready=true; msg('addEventListener',['onStateChange']); msg('addEventListener',['onVideoData']);
+        _q.forEach(fn=>fn()); _q.length=0;
+      }
+      if(d.event==='onStateChange'){
+        const s=d.info;
+        if(s===1){ // PLAYING
+          _wall=Date.now(); _playing=true;
+          if(!_syncing) broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:proxy.getCurrentTime()});
+        } else if(s===2||s===0){ // PAUSED / ENDED
+          _base=proxy.getCurrentTime(); _playing=false;
+          if(!_syncing) broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:_base});
+        }
+      }
+      if(!_playing && d.info?.currentTime!=null) _base=d.info.currentTime;
+    }catch(e){}
+  });
+
+  setTimeout(()=>msg('addEventListener',['onReady']), 800);
+
+  const proxy={
+    playVideo ()     { exec('playVideo'); },
+    pauseVideo()     { exec('pauseVideo'); },
+    seekTo    (t,b)  { _base=t; _wall=Date.now(); exec('seekTo',[t,b??true]); },
+    getCurrentTime() { return _playing ? _base+(Date.now()-_wall)/1000 : _base; },
+    setSize   (w,h)  { ifr.style.width=w+'px'; ifr.style.height=h+'px'; },
+    setSyncing(v)    { _syncing=v; if(v) setTimeout(()=>{ _syncing=false; },1500); }
+  };
+  ytPlrs[uid]=proxy;
+  setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(proxy.getCurrentTime());}catch(e){}; },500);
 }
-function vPlay(uid){ const p=ytPlrs[uid]; if(p){p.playVideo();broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:p.getCurrentTime()});} }
-function vPause(uid){ const p=ytPlrs[uid]; if(p){p.pauseVideo();broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:p.getCurrentTime()});} }
-function vSeek(uid,d){ const p=ytPlrs[uid]; if(p){const t=Math.max(0,(p.getCurrentTime()||0)+d);p.seekTo(t,true);broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:t});} }
+function vPlay(uid)  { const p=ytPlrs[uid]; if(p) p.playVideo(); }
+function vPause(uid) { const p=ytPlrs[uid]; if(p) p.pauseVideo(); }
+function vSeek(uid,d){ const p=ytPlrs[uid]; if(p){const t=Math.max(0,(p.getCurrentTime()||0)+d); p.seekTo(t,true); broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:t});} }
 
 /* ── CARD CREATORS ── */
 function mkGif(src,x,y,id,c,emit){
@@ -1234,7 +1214,7 @@ function mkGif(src,x,y,id,c,emit){
   if(emit)broadcast({type:'ADD_ITEM',item:{type:'gif',src,x,y,id}});
 }
 function mkImg(src,x,y,id,c,emit){
-  const w=document.createElement('div'); w.className='card img-card'; w.dataset.type='image'; w.dataset.itemId=id;
+  const w=document.createElement('div'); w.className='card img-card'; w.dataset.type='image'; w.dataset.itemId=id; w.dataset.src=src;
   Object.assign(w.style,{position:'absolute',left:x+'px',top:y+'px',zIndex:++zTop,width:'260px',height:'220px',display:'flex',flexDirection:'column'});
   const img=document.createElement('img'); img.loading='lazy'; img.src=src; img.style.cssText='width:100%;height:100%;object-fit:cover;display:block';
   const cb=document.createElement('div'); cb.className='cb'; cb.style.cssText='flex:1;min-height:0;overflow:hidden;padding:0;cursor:default'; cb.appendChild(img);
@@ -1242,6 +1222,7 @@ function mkImg(src,x,y,id,c,emit){
   w.appendChild(cb); const rzh=document.createElement('div'); rzh.className='rzh'; w.appendChild(rzh);
   c.appendChild(w); els.push(w);
   if(emit&&!src.startsWith('data:'))broadcast({type:'ADD_ITEM',item:{type:'image',src,x,y,id}});
+  else if(emit&&src.startsWith('data:'))toast('Imagem local — visível só para você','err');
 }
 function removeEl(el){ if(!el)return; const id=el.dataset.itemId; el.remove(); els=els.filter(e=>e!==el); if(id)broadcast({type:'REMOVE_ITEM',itemId:id}); toast('Removido'); }
 
@@ -1403,4 +1384,4 @@ function upsertPart(uid,info,label){
 </div>
 
 </body>
-</html>
+                                                                                                                                                                                                                                                                                                                                                                                                </html>
