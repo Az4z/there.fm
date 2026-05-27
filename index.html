@@ -608,7 +608,9 @@ let hbTimer  = null;
 let _supa    = null;
 let _ch      = null;
 let channel  = null; // alias for _ch
-let ytGToken = localStorage.getItem('tfm_yt_token') || null; // Google OAuth access token para YouTube Data API
+let ytGToken    = localStorage.getItem('tfm_yt_token') || null;
+let ytNextPage  = null;  // nextPageToken para paginação
+let ytLastQuery = '';    // última query para carregar mais
 
 /* drag/resize */
 let D=null, R=null, raf=null, px=0,py=0,pw=0,ph=0;
@@ -1251,23 +1253,31 @@ function ytUpdateLoginUI(){
 async function ytSearch(){
   const q=$('ytSearchInput').value.trim(); if(!q)return;
   if(!ytGToken){toast('Entre com Google primeiro','err');return;}
+  ytNextPage=null; ytLastQuery=q;
   $('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Buscando...</div>';
+  await ytFetchPage(q, null, false);
+}
+async function ytLoadMore(){
+  if(!ytNextPage||!ytLastQuery)return;
+  await ytFetchPage(ytLastQuery, ytNextPage, true);
+}
+async function ytFetchPage(q, pageToken, append){
   try{
-    const res=await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(q)}`,
-      {headers:{Authorization:'Bearer '+ytGToken}});
+    let url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(q)}`;
+    if(pageToken) url+=`&pageToken=${encodeURIComponent(pageToken)}`;
+    const res=await fetch(url,{headers:{Authorization:'Bearer '+ytGToken}});
     if(res.status===401){
-      // Token expirou — limpar silenciosamente e pedir para re-entrar
-      ytGToken=null;
-      localStorage.removeItem('tfm_yt_token');
-      // Manter o perfil em cache para mostrar o nome ao re-logar
+      ytGToken=null; localStorage.removeItem('tfm_yt_token');
       ytUpdateLoginUI();
       $('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Sessão expirada. Entre com Google novamente.</div>';
-      toast('Sessão expirou — entre novamente','err');
-      return;
+      toast('Sessão expirou — entre novamente','err'); return;
     }
     const data=await res.json();
-    if(!data.items?.length){$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Nenhum resultado</div>';return;}
-    $('ytResults').innerHTML=data.items.map(it=>{
+    ytNextPage=data.nextPageToken||null;
+    if(!data.items?.length&&!append){$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Nenhum resultado</div>';return;}
+    // Remove old "load more" button if appending
+    const oldBtn=$('ytLoadMoreBtn'); if(oldBtn)oldBtn.remove();
+    const html=(data.items||[]).map(it=>{
       const id=it.id.videoId; const sn=it.snippet;
       const thumb=sn.thumbnails?.medium?.url||sn.thumbnails?.default?.url||'';
       const title=(sn.title||'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
@@ -1276,7 +1286,23 @@ async function ytSearch(){
         <div class="ytrt"><span class="ytrtitle">${title}</span><span class="ytrchan">${sn.channelTitle||''}</span></div>
       </div>`;
     }).join('');
-  }catch(e){$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Erro ao buscar</div>';console.error(e);}
+    if(append){
+      $('ytResults').insertAdjacentHTML('beforeend', html);
+    } else {
+      $('ytResults').innerHTML=html;
+    }
+    // Add "load more" button if there's a next page
+    if(ytNextPage){
+      $('ytResults').insertAdjacentHTML('beforeend',
+        `<button id="ytLoadMoreBtn" onclick="ytLoadMore()" style="width:100%;margin-top:.4rem;padding:.65rem;background:rgba(255,255,255,.04);border:1px solid var(--ridge);border-radius:7px;color:var(--ash);font-family:'DM Sans',sans-serif;font-size:.78rem;cursor:pointer;transition:background .15s,color .15s" onmouseover="this.style.background='rgba(255,255,255,.09)';this.style.color='var(--bone)'" onmouseout="this.style.background='rgba(255,255,255,.04)';this.style.color='var(--ash)'">
+          Carregar mais ↓
+        </button>`
+      );
+    }
+  }catch(e){
+    if(!append) $('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Erro ao buscar</div>';
+    console.error(e);
+  }
 }
 function ytAddVideo(vid,title){
   const c=$('items'),id='vid_'+Date.now();
@@ -1329,4 +1355,4 @@ function upsertPart(uid,info,label){
 </div>
 
 </body>
-        </html>
+</html>
