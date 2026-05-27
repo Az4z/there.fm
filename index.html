@@ -323,6 +323,8 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 
 /* ── SETTINGS ───────────────────────── */
 .sp{display:none;position:fixed;inset:0;z-index:3000;align-items:center;justify-content:center;background:rgba(0,0,0,.82);backdrop-filter:blur(16px)}
+#ytPanel{background:transparent;backdrop-filter:none;pointer-events:none}
+#ytPanel .sbox{pointer-events:all}
 .sp.on{display:flex}
 .sbox{background:rgba(10,10,18,.98);backdrop-filter:var(--blur);border:1px solid var(--ghost);border-radius:var(--rxl);padding:1.9rem;max-width:450px;width:calc(100% - 2.5rem);max-height:88vh;overflow-y:auto;animation:mIn .3s var(--ease)}
 .sbox h2{font-family:'Cinzel',serif;font-size:1.18rem;font-weight:600;color:var(--bone);letter-spacing:.08em;margin-bottom:1.4rem}
@@ -1351,4 +1353,4 @@ function upsertPart(uid,info,label){
 </div>
 
 </body>
-  </html>
+</html>
