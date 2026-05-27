@@ -60,20 +60,54 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 
 /* ── MADE BY V INTRO ─────────────────── */
 #introV{position:fixed;inset:0;z-index:9999;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;}
-#introV.vis{animation:vIn .65s var(--ease) both}
-#introV.out{animation:vOut .65s var(--ease) both}
+#introV.vis{animation:vIn 1s cubic-bezier(.16,1,.3,1) both}
+#introV.out{animation:vOut .9s cubic-bezier(.4,0,1,1) both}
 @keyframes vIn{from{opacity:0}to{opacity:1}}
-@keyframes vOut{to{opacity:0}}
-.vmade{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(.7rem,2vw,.95rem);color:var(--shadow);letter-spacing:.32em;text-transform:uppercase;opacity:0;animation:iUp .7s var(--ease) .2s both}
-.vname{font-family:'UnifrakturMaguntia',cursive;font-size:clamp(3.5rem,14vw,8rem);color:var(--bone);letter-spacing:.08em;line-height:1;opacity:0;animation:vGlitch .9s var(--ease) .55s both;position:relative}
-.vname::before,.vname::after{content:'V';position:absolute;top:0;left:0;width:100%;text-align:center}
-.vname::before{color:var(--crimson);animation:glitchA 2.8s steps(1) 1.5s infinite;clip-path:polygon(0 20%,100% 20%,100% 45%,0 45%)}
-.vname::after{color:var(--gold);animation:glitchB 3.1s steps(1) 1.8s infinite;clip-path:polygon(0 60%,100% 60%,100% 80%,0 80%)}
-@keyframes vGlitch{from{opacity:0;transform:skewX(-6deg) scale(.92)}to{opacity:1;transform:skewX(0) scale(1)}}
-@keyframes glitchA{0%,90%,100%{transform:translate(0)}91%{transform:translate(-4px,1px)}94%{transform:translate(3px,-1px)}97%{transform:translate(-2px,2px)}}
-@keyframes glitchB{0%,88%,100%{transform:translate(0)}89%{transform:translate(5px,-2px)}93%{transform:translate(-3px,1px)}96%{transform:translate(2px,-1px)}}
-.vline{width:0;height:1px;background:linear-gradient(90deg,transparent,var(--crimson),var(--gold),transparent);margin:1.5rem auto 0;animation:iBar2 .8s var(--ease) 1.1s both}
-@keyframes iBar2{from{width:0}to{width:min(180px,50vw)}}
+@keyframes vOut{to{opacity:0;filter:blur(6px)}}
+.vmade{
+  font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:clamp(.65rem,1.8vw,.88rem);color:var(--shadow);
+  letter-spacing:.42em;text-transform:uppercase;
+  opacity:0;animation:vMadeIn 1.6s cubic-bezier(.16,1,.3,1) .3s both
+}
+@keyframes vMadeIn{
+  from{opacity:0;transform:translateY(10px);letter-spacing:.18em}
+  to{opacity:1;transform:translateY(0);letter-spacing:.42em}
+}
+.vname{
+  font-family:'UnifrakturMaguntia',cursive;
+  font-size:clamp(4rem,16vw,9rem);
+  color:var(--bone);letter-spacing:.06em;line-height:1;
+  opacity:0;
+  animation:vNameIn 2s cubic-bezier(.16,1,.3,1) .85s both;
+  position:relative;
+  text-shadow:0 0 80px rgba(196,160,96,0);
+}
+@keyframes vNameIn{
+  0%  {opacity:0;filter:blur(18px);transform:scale(1.12);text-shadow:0 0 80px rgba(196,160,96,0)}
+  40% {opacity:.7;filter:blur(4px);transform:scale(1.03)}
+  100%{opacity:1;filter:blur(0);transform:scale(1);text-shadow:0 0 60px rgba(196,160,96,.18)}
+}
+.vline{
+  width:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--gold),transparent);
+  margin:1.6rem auto 0;
+  opacity:0;
+  animation:vLineIn 1.2s cubic-bezier(.16,1,.3,1) 1.9s both
+}
+@keyframes vLineIn{
+  from{width:0;opacity:0}
+  20%{opacity:1}
+  to{width:min(160px,44vw);opacity:.55}
+}
+.vsub{
+  font-family:'Cormorant Garamond',serif;font-style:italic;
+  font-size:clamp(.6rem,1.5vw,.78rem);color:var(--dust);
+  letter-spacing:.22em;text-transform:uppercase;
+  margin-top:1.1rem;
+  opacity:0;animation:vSubIn 1.2s cubic-bezier(.16,1,.3,1) 2.3s both
+}
+@keyframes vSubIn{from{opacity:0;transform:translateY(6px)}to{opacity:.7;transform:translateY(0)}}
 
 /* ── SCENES ─────────────────────────── */
 .scene{position:fixed;inset:0;z-index:10;display:none;opacity:0;transition:opacity .4s var(--ease)}
@@ -385,6 +419,7 @@ body.mob .toast { top:auto; bottom:5.5rem; }
   <div class="vmade">made by</div>
   <div class="vname">V</div>
   <div class="vline"></div>
+  <div class="vsub">there.fm</div>
 </div>
 
 <div id="capture"></div>
@@ -613,8 +648,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     setTimeout(()=>el.remove(), 750);
     setTimeout(()=>{
       iv.classList.add('out');
-      setTimeout(()=>iv.remove(), 700);
-    }, 2600);
+      setTimeout(()=>iv.remove(), 950);
+    }, 3800);
   }, 3300);
 });
 function onYouTubeIframeAPIReady(){ ytReady=true; }
@@ -1197,26 +1232,35 @@ function ytUpdateLoginUI(){
   if(!loginBtn) return; // panel not in DOM yet
   if(ytGToken){
     loginBtn.style.display='none'; logoutBtn.style.display='flex'; searchSec.style.display='flex';
-    // Show cached profile immediately, then refresh
+    // Show cached profile immediately
     const cached=JSON.parse(localStorage.getItem('tfm_yt_profile')||'null');
     if(cached&&cached.picture){
       userInfo.innerHTML=`<img src="${cached.picture}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--ridge)"><span style="font-size:.78rem;color:var(--ash)">${cached.name||'Conta Google'}</span>`;
     } else {
-      userInfo.innerHTML=`<span style="font-size:.78rem;color:var(--ash)">Conta Google</span>`;
+      userInfo.innerHTML=`<span style="font-size:.78rem;color:var(--ash)">Conta Google ✓</span>`;
     }
-    // Fetch fresh profile (updates photo if token still valid)
+    // Fetch fresh profile — only revoke on definitive 401, keep token on network errors
     fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json',{headers:{Authorization:'Bearer '+ytGToken}})
-      .then(r=>{ if(!r.ok) throw new Error('expired'); return r.json(); })
+      .then(r=>{
+        if(r.status===401) throw new Error('unauthorized');
+        if(!r.ok) throw new Error('network'); // transient — keep token
+        return r.json();
+      })
       .then(d=>{
         const profile={name:d.name||d.email||'Conta Google', picture:d.picture||''};
         localStorage.setItem('tfm_yt_profile', JSON.stringify(profile));
         userInfo.innerHTML=`<img src="${profile.picture}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--ridge)"><span style="font-size:.78rem;color:var(--ash)">${profile.name}</span>`;
       })
-      .catch(()=>{
-        // Token expired — clear it silently
-        ytGToken=null; localStorage.removeItem('tfm_yt_token');
-        loginBtn.style.display='flex'; logoutBtn.style.display='none'; searchSec.style.display='none';
-        userInfo.innerHTML='';
+      .catch((err)=>{
+        if(err.message==='unauthorized'){
+          // Token definitivamente expirado — limpar
+          ytGToken=null;
+          localStorage.removeItem('tfm_yt_token');
+          localStorage.removeItem('tfm_yt_profile');
+          loginBtn.style.display='flex'; logoutBtn.style.display='none'; searchSec.style.display='none';
+          userInfo.innerHTML='';
+        }
+        // Erros de rede: manter login com o perfil em cache — não deslogar
       });
   } else {
     loginBtn.style.display='flex'; logoutBtn.style.display='none'; searchSec.style.display='none';
@@ -1230,7 +1274,7 @@ async function ytSearch(){
   try{
     const res=await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(q)}`,
       {headers:{Authorization:'Bearer '+ytGToken}});
-    if(res.status===401){ytGToken=null;localStorage.removeItem('tfm_yt_token');ytUpdateLoginUI();toast('Sessão expirada, entre novamente','err');return;}
+    if(res.status===401){ytGToken=null;localStorage.removeItem('tfm_yt_token');localStorage.removeItem('tfm_yt_profile');ytUpdateLoginUI();toast('Sessão expirada, entre novamente','err');return;}
     const data=await res.json();
     if(!data.items?.length){$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Nenhum resultado</div>';return;}
     $('ytResults').innerHTML=data.items.map(it=>{
