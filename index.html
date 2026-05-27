@@ -59,7 +59,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 @keyframes iOut{to{opacity:0;transform:scale(1.05)}}
 
 /* ── MADE BY V INTRO ─────────────────── */
-#introV{position:fixed;inset:0;z-index:9998;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;}
+#introV{position:fixed;inset:0;z-index:9999;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;opacity:0;}
 #introV.vis{animation:vIn .65s var(--ease) both}
 #introV.out{animation:vOut .65s var(--ease) both}
 @keyframes vIn{from{opacity:0}to{opacity:1}}
@@ -324,8 +324,24 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
 
 /* ── YOUTUBE PANEL ── */
 #ytPanel { width:min(320px,100vw); max-width:100vw; }
-.ytr { background:rgba(18,18,28,.9); border:1px solid var(--ridge); border-radius:7px; cursor:pointer; transition:background .15s,transform .12s; overflow:hidden; }
-.ytr:hover { background:rgba(34,34,50,.95); transform:translateY(-1px); }
+/* Override sbox for yt panel — fixed height so results can scroll independently */
+#ytPanel .sbox{
+  display:flex;flex-direction:column;
+  height:min(88vh,580px);max-height:90vh;
+  overflow:hidden; /* sbox itself does NOT scroll — only ytResults does */
+  padding:1.25rem 1.1rem;gap:.75rem;
+}
+#ytResults{
+  flex:1;min-height:0;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch; /* iOS momentum scroll */
+  overscroll-behavior:contain;
+  display:flex;flex-direction:column;gap:.55rem;
+  padding-right:.25rem;
+  touch-action:pan-y; /* allow vertical finger scroll */
+}
+.ytr { background:rgba(18,18,28,.9); border:1px solid var(--ridge); border-radius:7px; cursor:pointer; transition:background .15s,transform .12s; overflow:hidden; flex-shrink:0; }
+.ytr:hover { background:rgba(40,40,60,.95); transform:translateY(-1px); }
 .ytrt { padding:.5rem .6rem; display:flex; flex-direction:column; gap:.18rem; }
 .ytrtitle { font-size:.78rem; font-weight:500; line-height:1.35; color:var(--bone); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .ytrchan { font-size:.7rem; color:var(--ash); }
@@ -590,17 +606,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   setTimeout(()=>{
     const el=document.getElementById('intro');
+    const iv=document.getElementById('introV');
+    // Cross-fade: both animate simultaneously
     el.classList.add('out');
+    iv.classList.add('vis');
+    setTimeout(()=>el.remove(), 750);
     setTimeout(()=>{
-      el.remove();
-      // Show "Made by V" intro
-      const iv=document.getElementById('introV');
-      iv.classList.add('vis');
-      setTimeout(()=>{
-        iv.classList.add('out');
-        setTimeout(()=>iv.remove(), 700);
-      }, 2200);
-    }, 750);
+      iv.classList.add('out');
+      setTimeout(()=>iv.remove(), 700);
+    }, 2600);
   }, 3300);
 });
 function onYouTubeIframeAPIReady(){ ytReady=true; }
@@ -634,8 +648,8 @@ function handlePhoto(input,form){
 
 /* ── AUTH ── */
 function checkAuth(){ try{ const s=localStorage.getItem('tfm_u'); if(s){U=JSON.parse(s);goLanding();}else goAuth(); }catch{goAuth();} }
-function goAuth(){ setScene('authScene'); $('msgbar').classList.remove('show'); }
-function goLanding(){ setScene('landingScene'); $('msgbar').classList.remove('show'); }
+function goAuth(){ setScene('authScene'); $('msgbar').classList.remove('show'); $('ytPanel').classList.remove('on'); }
+function goLanding(){ setScene('landingScene'); $('msgbar').classList.remove('show'); $('ytPanel').classList.remove('on'); }
 function goRoom(){ setScene('roomScene'); $('msgbar').classList.add('show'); }
 function setScene(id){ document.querySelectorAll('.scene').forEach(s=>s.classList.remove('active')); $(id).classList.add('active'); }
 function toSignup(){ $('loginForm').style.display='none'; $('signupForm').style.display='flex'; }
@@ -1062,19 +1076,31 @@ function initYT(uid,vid,iw,ih,_retries){
     ifr.allow='autoplay; fullscreen; encrypted-media; picture-in-picture';
     ifr.allowFullscreen=true; ifr.setAttribute('playsinline','');
     cont.appendChild(ifr);
-    let _t=0; // tempo local aproximado
+    // Wall-clock time tracking — accurate even when postMessage is delayed
+    let _base=0, _playing=false, _wall=0;
     const msg=(func,args)=>{ try{ ifr.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args||''}), '*'); }catch(e){} };
-    ytPlrs[uid]={
-      playVideo (){ msg('playVideo'); },
-      pauseVideo(){ msg('pauseVideo'); },
-      seekTo    (t){ _t=t; msg('seekTo',[t,true]); },
-      getCurrentTime(){ return _t; },
+    const proxy={
+      playVideo (){ _base=proxy.getCurrentTime(); _wall=Date.now(); _playing=true;  msg('playVideo'); },
+      pauseVideo(){ _base=proxy.getCurrentTime(); _playing=false; msg('pauseVideo'); },
+      seekTo    (t){ _base=t; _wall=Date.now(); msg('seekTo',[t,true]); },
+      getCurrentTime(){ return _playing ? _base+(Date.now()-_wall)/1000 : _base; },
       setSize   (w,h){ ifr.width=String(w); ifr.height=String(h); }
     };
-    // Atualiza _t via mensagens do iframe
-    window.addEventListener('message',e=>{
-      try{ const d=JSON.parse(e.data); if(d.info?.currentTime!=null) _t=d.info.currentTime; }catch(e){}
+    ytPlrs[uid]=proxy;
+    // Sync play/pause state from iframe YT API messages (1=playing, 2=paused, 0=ended)
+    window.addEventListener('message',ev=>{
+      try{
+        const d=JSON.parse(ev.data);
+        if(d.event==='onStateChange'){
+          if(d.info===1){ _base=proxy.getCurrentTime(); _wall=Date.now(); _playing=true; }
+          else if(d.info===2||d.info===0){ _base=proxy.getCurrentTime(); _playing=false; }
+        }
+        // infoDelivery: only correct _base when paused to avoid overwriting wall-clock estimate
+        if(!_playing&&d.info?.currentTime!=null) _base=d.info.currentTime;
+      }catch(e){}
     });
+    // Timer display — same interval as desktop
+    setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(proxy.getCurrentTime());}catch(e){}; },500);
     return;
   }
 
@@ -1090,7 +1116,7 @@ function initYT(uid,vid,iw,ih,_retries){
   const p=new YT.Player(cont,{width:String(iw||VID_W),height:String(ih||VID_H),videoId:vid,
     playerVars:{autoplay:0,controls:0,modestbranding:1,rel:0,fs:1,iv_load_policy:3,playsinline:1},
     events:{
-      onReady:()=>{ ytPlrs[uid]=p; setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(p.getCurrentTime()||0);}catch(e){} },800); },
+      onReady:()=>{ ytPlrs[uid]=p; setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(p.getCurrentTime()||0);}catch(e){} },500); },
       onStateChange:e=>{ if(e.data===YT.PlayerState.PLAYING)broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:p.getCurrentTime()}); if(e.data===YT.PlayerState.PAUSED)broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:p.getCurrentTime()}); }
     }});
 }
@@ -1122,9 +1148,14 @@ function removeEl(el){ if(!el)return; const id=el.dataset.itemId; el.remove(); e
 /* ── YOUTUBE PANEL ── */
 function openYtPanel(){
   const panel=$('ytPanel'); if(!panel)return;
+  // Only open when inside a room
+  if(!room){toast('Entre em uma sala primeiro','err');return;}
   panel.classList.toggle('on');
 }
-function closeYtPanel(){ $('ytPanel').classList.remove('on'); }
+function closeYtPanel(e){
+  // If called from backdrop click, only close if the click was on the overlay itself
+  if(e&&e.currentTarget===e.target||!e) $('ytPanel').classList.remove('on');
+}
 
 function ytGoogleLogin(){
   if(!YT_CLIENT_ID||YT_CLIENT_ID.startsWith('SEU_')){
@@ -1150,26 +1181,43 @@ function ytGoogleLogin(){
         const params=new URLSearchParams(hash.slice(1));
         ytGToken=params.get('access_token');
         localStorage.setItem('tfm_yt_token', ytGToken);
-        ytUpdateLoginUI();
+        ytUpdateLoginUI(); // this will fetch and cache the profile
         toast('Conta Google conectada ✓');
       }
     }catch(e){/* cross-origin enquanto redireciona */}
   },500);
 }
 function ytGoogleLogout(){
-  ytGToken=null; localStorage.removeItem('tfm_yt_token'); ytUpdateLoginUI();
+  ytGToken=null; localStorage.removeItem('tfm_yt_token'); localStorage.removeItem('tfm_yt_profile'); ytUpdateLoginUI();
   $('ytResults').innerHTML='';
   toast('Desconectado do Google');
 }
 function ytUpdateLoginUI(){
   const loginBtn=$('ytLoginBtn'), logoutBtn=$('ytLogoutBtn'), searchSec=$('ytSearchSec'), userInfo=$('ytUserInfo');
+  if(!loginBtn) return; // panel not in DOM yet
   if(ytGToken){
     loginBtn.style.display='none'; logoutBtn.style.display='flex'; searchSec.style.display='flex';
-    // Busca nome/foto do usuário logado
+    // Show cached profile immediately, then refresh
+    const cached=JSON.parse(localStorage.getItem('tfm_yt_profile')||'null');
+    if(cached&&cached.picture){
+      userInfo.innerHTML=`<img src="${cached.picture}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--ridge)"><span style="font-size:.78rem;color:var(--ash)">${cached.name||'Conta Google'}</span>`;
+    } else {
+      userInfo.innerHTML=`<span style="font-size:.78rem;color:var(--ash)">Conta Google</span>`;
+    }
+    // Fetch fresh profile (updates photo if token still valid)
     fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json',{headers:{Authorization:'Bearer '+ytGToken}})
-      .then(r=>r.json()).then(d=>{
-        userInfo.innerHTML=`<img src="${d.picture||''}" style="width:22px;height:22px;border-radius:50%;object-fit:cover"><span style="font-size:.78rem;color:var(--ash)">${d.name||d.email||'Conta Google'}</span>`;
-      }).catch(()=>{});
+      .then(r=>{ if(!r.ok) throw new Error('expired'); return r.json(); })
+      .then(d=>{
+        const profile={name:d.name||d.email||'Conta Google', picture:d.picture||''};
+        localStorage.setItem('tfm_yt_profile', JSON.stringify(profile));
+        userInfo.innerHTML=`<img src="${profile.picture}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--ridge)"><span style="font-size:.78rem;color:var(--ash)">${profile.name}</span>`;
+      })
+      .catch(()=>{
+        // Token expired — clear it silently
+        ytGToken=null; localStorage.removeItem('tfm_yt_token');
+        loginBtn.style.display='flex'; logoutBtn.style.display='none'; searchSec.style.display='none';
+        userInfo.innerHTML='';
+      });
   } else {
     loginBtn.style.display='flex'; logoutBtn.style.display='none'; searchSec.style.display='none';
     userInfo.innerHTML='';
@@ -1180,7 +1228,7 @@ async function ytSearch(){
   if(!ytGToken){toast('Entre com Google primeiro','err');return;}
   $('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Buscando...</div>';
   try{
-    const res=await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=20&q=${encodeURIComponent(q)}`,
+    const res=await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(q)}`,
       {headers:{Authorization:'Bearer '+ytGToken}});
     if(res.status===401){ytGToken=null;localStorage.removeItem('tfm_yt_token');ytUpdateLoginUI();toast('Sessão expirada, entre novamente','err');return;}
     const data=await res.json();
@@ -1213,38 +1261,38 @@ function upsertPart(uid,info,label){
 }
 </script>
 <!-- YouTube Panel -->
-<div class="sp" id="ytPanel">
-  <div class="sbox" style="display:flex;flex-direction:column;height:100%;padding:1.25rem 1.1rem;gap:.75rem">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <h2 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:.5rem">
+<div class="sp" id="ytPanel" onclick="closeYtPanel(event)">
+  <div class="sbox" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <h2 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:.5rem;margin:0">
         <svg viewBox="0 0 24 24" fill="#ff4444" width="16" height="16"><path d="M23.5 6.2a3 3 0 00-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 00.5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 002.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 002.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"/></svg>
         YouTube
       </h2>
-      <button class="btn bg2 bsm" onclick="closeYtPanel()" style="padding:.3rem .7rem">✕</button>
+      <button class="btn bg2 bsm" onclick="$('ytPanel').classList.remove('on')" style="padding:.3rem .8rem;font-size:1rem;line-height:1;flex-shrink:0">✕</button>
     </div>
 
     <!-- Login Google -->
-    <div id="ytUserInfo" style="display:flex;align-items:center;gap:.5rem;min-height:24px"></div>
-    <button id="ytLoginBtn" class="btn" onclick="ytGoogleLogin()" style="display:flex;align-items:center;justify-content:center;gap:.5rem;background:#fff;color:#444;border:1px solid #ddd;font-weight:500">
+    <div id="ytUserInfo" style="display:flex;align-items:center;gap:.5rem;min-height:24px;flex-shrink:0"></div>
+    <button id="ytLoginBtn" class="btn" onclick="ytGoogleLogin()" style="display:flex;align-items:center;justify-content:center;gap:.5rem;background:#fff;color:#444;border:1px solid #ddd;font-weight:500;flex-shrink:0">
       <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
       Entrar com Google
     </button>
-    <div id="ytLogoutBtn" style="display:none;align-items:center;gap:.5rem">
-      <button class="btn bg2 bsm" onclick="ytGoogleLogout()" style="font-size:.75rem">Sair</button>
+    <div id="ytLogoutBtn" style="display:none;align-items:center;gap:.5rem;flex-shrink:0">
+      <button class="btn bg2 bsm" onclick="ytGoogleLogout()" style="font-size:.75rem">Sair da conta</button>
     </div>
 
     <!-- Busca -->
     <div id="ytSearchSec" style="display:none;flex-direction:column;gap:.5rem;flex:1;min-height:0">
-      <div style="display:flex;gap:.4rem">
+      <div style="display:flex;gap:.4rem;flex-shrink:0">
         <input class="mi" id="ytSearchInput" placeholder="Buscar no YouTube..." style="flex:1;padding:.5rem .75rem;font-size:.83rem" onkeydown="if(event.key==='Enter')ytSearch()">
         <button class="btn bp bsm" onclick="ytSearch()" style="flex-shrink:0;padding:.5rem .8rem">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         </button>
       </div>
-      <div id="ytResults" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:.55rem;padding-right:.2rem"></div>
+      <div id="ytResults"></div>
     </div>
   </div>
 </div>
 
 </body>
-</html>
+      </html>
