@@ -1234,7 +1234,7 @@ function mkGif(src,x,y,id,c,emit){
   if(emit)broadcast({type:'ADD_ITEM',item:{type:'gif',src,x,y,id}});
 }
 function mkImg(src,x,y,id,c,emit){
-  const w=document.createElement('div'); w.className='card img-card'; w.dataset.type='image'; w.dataset.itemId=id; w.dataset.src=src;
+  const w=document.createElement('div'); w.className='card img-card'; w.dataset.type='image'; w.dataset.itemId=id;
   Object.assign(w.style,{position:'absolute',left:x+'px',top:y+'px',zIndex:++zTop,width:'260px',height:'220px',display:'flex',flexDirection:'column'});
   const img=document.createElement('img'); img.loading='lazy'; img.src=src; img.style.cssText='width:100%;height:100%;object-fit:cover;display:block';
   const cb=document.createElement('div'); cb.className='cb'; cb.style.cssText='flex:1;min-height:0;overflow:hidden;padding:0;cursor:default'; cb.appendChild(img);
@@ -1242,7 +1242,6 @@ function mkImg(src,x,y,id,c,emit){
   w.appendChild(cb); const rzh=document.createElement('div'); rzh.className='rzh'; w.appendChild(rzh);
   c.appendChild(w); els.push(w);
   if(emit&&!src.startsWith('data:'))broadcast({type:'ADD_ITEM',item:{type:'image',src,x,y,id}});
-  else if(emit&&src.startsWith('data:'))toast('Imagem local — visível só para você','err');
 }
 function removeEl(el){ if(!el)return; const id=el.dataset.itemId; el.remove(); els=els.filter(e=>e!==el); if(id)broadcast({type:'REMOVE_ITEM',itemId:id}); toast('Removido'); }
 
