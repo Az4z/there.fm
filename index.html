@@ -75,9 +75,12 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--void);color:var
   to{opacity:1;transform:translateY(0);letter-spacing:.42em}
 }
 .vname{
-  font-family:'UnifrakturMaguntia',cursive;
-  font-size:clamp(4rem,16vw,9rem);
-  color:var(--bone);letter-spacing:.06em;line-height:1;
+  font-family:'Cinzel',serif;
+  font-weight:700;
+  font-size:clamp(5rem,20vw,11rem);
+  color:var(--bone);
+  letter-spacing:0;
+  line-height:1;
   opacity:0;
   animation:vNameIn 2s cubic-bezier(.16,1,.3,1) .85s both;
   position:relative;
@@ -1229,39 +1232,17 @@ function ytGoogleLogout(){
 }
 function ytUpdateLoginUI(){
   const loginBtn=$('ytLoginBtn'), logoutBtn=$('ytLogoutBtn'), searchSec=$('ytSearchSec'), userInfo=$('ytUserInfo');
-  if(!loginBtn) return; // panel not in DOM yet
+  if(!loginBtn) return;
   if(ytGToken){
     loginBtn.style.display='none'; logoutBtn.style.display='flex'; searchSec.style.display='flex';
-    // Show cached profile immediately
+    // Mostra perfil do cache imediatamente — SEM fazer fetch para Google aqui.
+    // O token será validado de verdade só quando o usuário pesquisar.
     const cached=JSON.parse(localStorage.getItem('tfm_yt_profile')||'null');
     if(cached&&cached.picture){
       userInfo.innerHTML=`<img src="${cached.picture}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--ridge)"><span style="font-size:.78rem;color:var(--ash)">${cached.name||'Conta Google'}</span>`;
     } else {
       userInfo.innerHTML=`<span style="font-size:.78rem;color:var(--ash)">Conta Google ✓</span>`;
     }
-    // Fetch fresh profile — only revoke on definitive 401, keep token on network errors
-    fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json',{headers:{Authorization:'Bearer '+ytGToken}})
-      .then(r=>{
-        if(r.status===401) throw new Error('unauthorized');
-        if(!r.ok) throw new Error('network'); // transient — keep token
-        return r.json();
-      })
-      .then(d=>{
-        const profile={name:d.name||d.email||'Conta Google', picture:d.picture||''};
-        localStorage.setItem('tfm_yt_profile', JSON.stringify(profile));
-        userInfo.innerHTML=`<img src="${profile.picture}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--ridge)"><span style="font-size:.78rem;color:var(--ash)">${profile.name}</span>`;
-      })
-      .catch((err)=>{
-        if(err.message==='unauthorized'){
-          // Token definitivamente expirado — limpar
-          ytGToken=null;
-          localStorage.removeItem('tfm_yt_token');
-          localStorage.removeItem('tfm_yt_profile');
-          loginBtn.style.display='flex'; logoutBtn.style.display='none'; searchSec.style.display='none';
-          userInfo.innerHTML='';
-        }
-        // Erros de rede: manter login com o perfil em cache — não deslogar
-      });
   } else {
     loginBtn.style.display='flex'; logoutBtn.style.display='none'; searchSec.style.display='none';
     userInfo.innerHTML='';
@@ -1274,7 +1255,16 @@ async function ytSearch(){
   try{
     const res=await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(q)}`,
       {headers:{Authorization:'Bearer '+ytGToken}});
-    if(res.status===401){ytGToken=null;localStorage.removeItem('tfm_yt_token');localStorage.removeItem('tfm_yt_profile');ytUpdateLoginUI();toast('Sessão expirada, entre novamente','err');return;}
+    if(res.status===401){
+      // Token expirou — limpar silenciosamente e pedir para re-entrar
+      ytGToken=null;
+      localStorage.removeItem('tfm_yt_token');
+      // Manter o perfil em cache para mostrar o nome ao re-logar
+      ytUpdateLoginUI();
+      $('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Sessão expirada. Entre com Google novamente.</div>';
+      toast('Sessão expirou — entre novamente','err');
+      return;
+    }
     const data=await res.json();
     if(!data.items?.length){$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Nenhum resultado</div>';return;}
     $('ytResults').innerHTML=data.items.map(it=>{
@@ -1339,4 +1329,4 @@ function upsertPart(uid,info,label){
 </div>
 
 </body>
-      </html>
+        </html>
