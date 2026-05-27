@@ -1248,26 +1248,35 @@ function ytUpdateLoginUI(){
     userInfo.innerHTML='';
   }
 }
+let ytNextPageToken=null, ytCurrentQuery='';
 async function ytSearch(){
   const q=$('ytSearchInput').value.trim(); if(!q)return;
   if(!ytGToken){toast('Entre com Google primeiro','err');return;}
+  ytNextPageToken=null; ytCurrentQuery=q;
   $('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Buscando...</div>';
+  await ytFetchPage(true);
+}
+async function ytLoadMore(){
+  if(!ytNextPageToken||!ytCurrentQuery)return;
+  await ytFetchPage(false);
+}
+async function ytFetchPage(isNew){
   try{
-    const res=await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(q)}`,
-      {headers:{Authorization:'Bearer '+ytGToken}});
+    let url=`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(ytCurrentQuery)}`;
+    if(ytNextPageToken&&!isNew) url+=`&pageToken=${encodeURIComponent(ytNextPageToken)}`;
+    const res=await fetch(url,{headers:{Authorization:'Bearer '+ytGToken}});
     if(res.status===401){
-      // Token expirou — limpar silenciosamente e pedir para re-entrar
       ytGToken=null;
       localStorage.removeItem('tfm_yt_token');
-      // Manter o perfil em cache para mostrar o nome ao re-logar
       ytUpdateLoginUI();
       $('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Sessão expirada. Entre com Google novamente.</div>';
       toast('Sessão expirou — entre novamente','err');
       return;
     }
     const data=await res.json();
-    if(!data.items?.length){$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Nenhum resultado</div>';return;}
-    $('ytResults').innerHTML=data.items.map(it=>{
+    if(isNew&&!data.items?.length){$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Nenhum resultado</div>';return;}
+    ytNextPageToken=data.nextPageToken||null;
+    const html=data.items.map(it=>{
       const id=it.id.videoId; const sn=it.snippet;
       const thumb=sn.thumbnails?.medium?.url||sn.thumbnails?.default?.url||'';
       const title=(sn.title||'').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;/g,"'");
@@ -1276,7 +1285,20 @@ async function ytSearch(){
         <div class="ytrt"><span class="ytrtitle">${title}</span><span class="ytrchan">${sn.channelTitle||''}</span></div>
       </div>`;
     }).join('');
-  }catch(e){$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Erro ao buscar</div>';console.error(e);}
+    const existingBtn=document.getElementById('ytLoadMoreBtn');
+    if(existingBtn) existingBtn.remove();
+    if(isNew){
+      $('ytResults').innerHTML=html;
+    } else {
+      $('ytResults').insertAdjacentHTML('beforeend',html);
+    }
+    if(ytNextPageToken){
+      $('ytResults').insertAdjacentHTML('beforeend',
+        `<div id="ytLoadMoreBtn" style="display:flex;justify-content:center;padding:.75rem 0 .25rem">
+          <button class="btn bg2 bsm" onclick="ytLoadMore()" style="font-size:.78rem;width:100%">Carregar mais resultados</button>
+        </div>`);
+    }
+  }catch(e){if(isNew)$('ytResults').innerHTML='<div style="text-align:center;padding:1.5rem;color:var(--ash);font-size:.8rem">Erro ao buscar</div>';console.error(e);}
 }
 function ytAddVideo(vid,title){
   const c=$('items'),id='vid_'+Date.now();
@@ -1329,4 +1351,4 @@ function upsertPart(uid,info,label){
 </div>
 
 </body>
-        </html>
+  </html>
