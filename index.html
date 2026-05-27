@@ -621,13 +621,30 @@ let drawColor='#eae6de', drawHist=[], lastDX=0, lastDY=0;
 
 /* ── INIT ── */
 document.addEventListener('DOMContentLoaded', ()=>{
-  /* ── MOBILE DETECTION (webintoapp) ──
-     Aplica body.mob apenas em dispositivos touch com UA móvel.
-     Desktop permanece sem nenhuma alteração.
-  ── */
+  /* ── MOBILE DETECTION (webintoapp) ── */
   const isMob = ('ontouchstart' in window) &&
     /Mobi|Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
   if(isMob) document.body.classList.add('mob');
+
+  /* ── OAUTH REDIRECT RETURN ──────────────────────────────────────
+     Google redireciona de volta com o token no hash da URL.
+     Detectamos aqui antes de qualquer coisa para não mostrar a intro
+     nem pedir login de novo.
+  ─────────────────────────────────────────────────────────────── */
+  let oauthReturn = false;
+  if(location.hash.includes('access_token')){
+    try{
+      const params = new URLSearchParams(location.hash.slice(1));
+      const token  = params.get('access_token');
+      if(token){
+        oauthReturn = true;
+        ytGToken = token;
+        localStorage.setItem('tfm_yt_token', token);
+        // Limpa o hash da URL sem reload
+        history.replaceState(null, '', location.pathname + location.search);
+      }
+    }catch(e){}
+  }
 
   buildColors(); buildTbp(); buildDrawColors();
   ytUpdateLoginUI();
@@ -644,18 +661,40 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(e.key==='Escape'){ document.querySelectorAll('.modal').forEach(m=>m.classList.remove('on')); closeSettings(); }
     if((e.key==='Delete'||e.key==='Backspace')&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA') delSel();
   });
-  setTimeout(()=>{
+
+  if(oauthReturn){
+    // Volta do OAuth: pula intro, mostra mensagem e reabre sala se havia uma
     const el=document.getElementById('intro');
     const iv=document.getElementById('introV');
-    // Cross-fade: both animate simultaneously
-    el.classList.add('out');
-    iv.classList.add('vis');
-    setTimeout(()=>el.remove(), 750);
+    if(el) el.remove();
+    if(iv) iv.remove();
     setTimeout(()=>{
-      iv.classList.add('out');
-      setTimeout(()=>iv.remove(), 950);
-    }, 3800);
-  }, 3300);
+      toast('Conta Google conectada ✓','ok');
+      // Reabre a sala salva antes do redirect, se houver
+      const pendingRoom = localStorage.getItem('tfm_yt_pending_room');
+      if(pendingRoom){
+        localStorage.removeItem('tfm_yt_pending_room');
+        const ri = document.getElementById('roomInput');
+        if(ri) ri.value = pendingRoom;
+        joinRoom();
+        // Abre o painel do YouTube automaticamente após entrar
+        setTimeout(()=>{ openYtPanel(); ytUpdateLoginUI(); }, 600);
+      }
+    }, 200);
+  } else {
+    // Fluxo normal: intro + introV
+    setTimeout(()=>{
+      const el=document.getElementById('intro');
+      const iv=document.getElementById('introV');
+      el.classList.add('out');
+      iv.classList.add('vis');
+      setTimeout(()=>el.remove(), 750);
+      setTimeout(()=>{
+        iv.classList.add('out');
+        setTimeout(()=>iv.remove(), 950);
+      }, 3800);
+    }, 3300);
+  }
 });
 function onYouTubeIframeAPIReady(){ ytReady=true; }
 
@@ -1201,6 +1240,9 @@ function ytGoogleLogin(){
   if(!YT_CLIENT_ID||YT_CLIENT_ID.startsWith('SEU_')){
     toast('Configure o YT_CLIENT_ID no código','err'); return;
   }
+  // Salva o código da sala antes de redirecionar, para restaurar ao voltar
+  if(room) localStorage.setItem('tfm_yt_pending_room', room.code);
+
   const scope='https://www.googleapis.com/auth/youtube.readonly';
   const redirectUri=location.href.split('?')[0].split('#')[0];
   const url=`https://accounts.google.com/o/oauth2/v2/auth`+
@@ -1209,23 +1251,8 @@ function ytGoogleLogin(){
     `&response_type=token`+
     `&scope=${encodeURIComponent(scope)}`+
     `&prompt=select_account`;
-  // Abre em popup para manter estado da sala
-  const w=window.open(url,'_blank','width=520,height=620,toolbar=no,menubar=no');
-  // Escuta redirecionamento via hash
-  const poll=setInterval(()=>{
-    try{
-      if(!w||w.closed){clearInterval(poll);return;}
-      const hash=w.location.hash||'';
-      if(hash.includes('access_token')){
-        clearInterval(poll); w.close();
-        const params=new URLSearchParams(hash.slice(1));
-        ytGToken=params.get('access_token');
-        localStorage.setItem('tfm_yt_token', ytGToken);
-        ytUpdateLoginUI(); // this will fetch and cache the profile
-        toast('Conta Google conectada ✓');
-      }
-    }catch(e){/* cross-origin enquanto redireciona */}
-  },500);
+  // Redireciona a página inteira — funciona em WebView (webintoapp) e browser normal
+  location.href = url;
 }
 function ytGoogleLogout(){
   ytGToken=null; localStorage.removeItem('tfm_yt_token'); localStorage.removeItem('tfm_yt_profile'); ytUpdateLoginUI();
