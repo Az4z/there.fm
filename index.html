@@ -1004,9 +1004,10 @@ function initDraw(){
 function initPointer(){
   const items=$('items'),cap=$('capture');
   // Keep iframes pointer-events:none so rzh handle always works
-  // Re-enable briefly on vcbtn click so YT can process it
-  const disIf=()=>document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='none');
-  const enIf= ()=>document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='');
+  // On mobile, iframes stay active so YouTube native controls work (user gesture preserved)
+  const isMobCtx=document.body.classList.contains('mob');
+  const disIf=()=>{ if(isMobCtx)return; document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='none'); };
+  const enIf= ()=>{ if(isMobCtx)return; document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents=''); };
   disIf();
   document.addEventListener('click',e=>{ if(e.target.closest('.vcbtn')){ enIf(); setTimeout(disIf,1200); } });
   /* Em mobile/WebView, touchstart chega antes do click; habilita o iframe
@@ -1139,46 +1140,66 @@ function mkVid(vid,x,y,id,container,broadcastIt){
   setTimeout(()=>initYT(uid,vid,VID_W,VID_H),300);
 }
 function initYT(uid,vid,iw,ih,_retries){
-  /* ── MOBILE (webintoapp): iframe direto + postMessage ──────────────────
-     WebViews Android/iOS bloqueiam o callback onYouTubeIframeAPIReady com
-     frequência. Em vez de depender do YT IFrame API, criamos o <iframe>
-     diretamente com ?enablejsapi=1 e usamos postMessage para controle.
-     O objeto ytPlrs[uid] expõe a mesma interface que YT.Player.
+  /* ── MOBILE (webintoapp): controles nativos do YouTube ─────────────────
+     Android WebView bloqueia postMessage playVideo() sem gesto direto do
+     usuário. Solução: controls=1 (o botão ▶ nativo do YouTube é o gesto),
+     pointer-events sempre ativo no iframe, e sincronização via onStateChange.
   ─────────────────────────────────────────────────────────────────────── */
   if(document.body.classList.contains('mob')){
     const cont=$('ypc-'+uid); if(!cont||cont.dataset.ytinit)return; cont.dataset.ytinit='1';
-    const origin=location.origin||('https://'+location.hostname)||'https://localhost';
-    const src=`https://www.youtube.com/embed/${vid}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&controls=0&iv_load_policy=3&origin=${encodeURIComponent(origin)}`;
+    const origin=encodeURIComponent(location.origin||('https://'+location.hostname)||'https://localhost');
+    const src=`https://www.youtube.com/embed/${vid}?enablejsapi=1&playsinline=1&rel=0&modestbranding=1&controls=1&iv_load_policy=3&origin=${origin}`;
     const ifr=document.createElement('iframe');
-    ifr.src=src; ifr.width=String(iw||VID_W); ifr.height=String(ih||VID_H);
-    ifr.style.cssText='border:none;display:block;width:100%;height:100%;';
+    ifr.src=src;
+    ifr.width=String(iw||VID_W); ifr.height=String(ih||VID_H);
+    // pointer-events:auto sempre — usuário toca direto no YouTube (gesto preservado)
+    ifr.style.cssText='border:none;display:block;width:100%;height:100%;pointer-events:auto;';
     ifr.allow='autoplay; fullscreen; encrypted-media; picture-in-picture';
     ifr.allowFullscreen=true; ifr.setAttribute('playsinline','');
     cont.appendChild(ifr);
-    // Wall-clock time tracking — accurate even when postMessage is delayed
-    let _base=0, _playing=false, _wall=0;
-    const msg=(func,args)=>{ try{ ifr.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args||''}), '*'); }catch(e){} };
+
+    let _base=0, _playing=false, _wall=0, _ready=false;
+    const _q=[];
+
+    const msg=(func,args)=>{
+      try{ ifr.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args??''}), '*'); }catch(e){}
+    };
+    // Executa imediatamente se pronto, ou enfileira
+    const exec=(func,args)=>{ if(_ready) msg(func,args); else _q.push(()=>msg(func,args)); };
+
+    window.addEventListener('message',ev=>{
+      try{
+        const d=JSON.parse(ev.data);
+        if(d.event==='onReady'){
+          _ready=true; msg('addEventListener',['onStateChange']); msg('addEventListener',['onVideoData']);
+          _q.forEach(fn=>fn()); _q.length=0;
+        }
+        if(d.event==='onStateChange'){
+          const s=d.info;
+          if(s===1){ // PLAYING — só agora o contador começa
+            _wall=Date.now(); _playing=true;
+            broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:proxy.getCurrentTime()});
+          } else if(s===2||s===0){ // PAUSED / ENDED
+            _base=proxy.getCurrentTime(); _playing=false;
+            broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:_base});
+          }
+        }
+        // Atualiza base quando pausado (infoDelivery com currentTime)
+        if(!_playing && d.info?.currentTime!=null) _base=d.info.currentTime;
+      }catch(e){}
+    });
+
+    // Subscreve ao onReady após o iframe carregar
+    setTimeout(()=>msg('addEventListener',['onReady']), 800);
+
     const proxy={
-      playVideo (){ _base=proxy.getCurrentTime(); _wall=Date.now(); _playing=true;  msg('playVideo'); },
-      pauseVideo(){ _base=proxy.getCurrentTime(); _playing=false; msg('pauseVideo'); },
-      seekTo    (t){ _base=t; _wall=Date.now(); msg('seekTo',[t,true]); },
+      playVideo (){ exec('playVideo');  },
+      pauseVideo(){ exec('pauseVideo'); },
+      seekTo    (t,b){ _base=t; _wall=Date.now(); exec('seekTo',[t,b??true]); },
       getCurrentTime(){ return _playing ? _base+(Date.now()-_wall)/1000 : _base; },
       setSize   (w,h){ ifr.width=String(w); ifr.height=String(h); }
     };
     ytPlrs[uid]=proxy;
-    // Sync play/pause state from iframe YT API messages (1=playing, 2=paused, 0=ended)
-    window.addEventListener('message',ev=>{
-      try{
-        const d=JSON.parse(ev.data);
-        if(d.event==='onStateChange'){
-          if(d.info===1){ _base=proxy.getCurrentTime(); _wall=Date.now(); _playing=true; }
-          else if(d.info===2||d.info===0){ _base=proxy.getCurrentTime(); _playing=false; }
-        }
-        // infoDelivery: only correct _base when paused to avoid overwriting wall-clock estimate
-        if(!_playing&&d.info?.currentTime!=null) _base=d.info.currentTime;
-      }catch(e){}
-    });
-    // Timer display — same interval as desktop
     setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(proxy.getCurrentTime());}catch(e){}; },500);
     return;
   }
