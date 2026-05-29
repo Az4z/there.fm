@@ -246,7 +246,6 @@ body.light .bp{background:linear-gradient(135deg,#16a34a,#0f6630);color:#fff;box
 /* ── CANVAS ─────────────────────────── */
 .cw{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
 #bgCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
-/* drawCanvas always rendered so pixels persist; z-index controls event capture */
 #drawCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;cursor:default}
 #drawCanvas.active{pointer-events:auto;cursor:crosshair;z-index:20}
 #items{position:absolute;inset:0;z-index:10}
@@ -443,21 +442,20 @@ body.light .bp{background:linear-gradient(135deg,#16a34a,#0f6630);color:#fff;box
 .prog-times{display:flex;justify-content:space-between;font-size:.58rem;color:var(--dust);font-family:'SF Mono',monospace}
 /* ── YOUTUBE PANEL ── */
 #ytPanel { width:min(320px,100vw); max-width:100vw; }
-/* Override sbox for yt panel — fixed height so results can scroll independently */
 #ytPanel .sbox{
   display:flex;flex-direction:column;
   height:min(88vh,580px);max-height:90vh;
-  overflow:hidden; /* sbox itself does NOT scroll — only ytResults does */
+  overflow:hidden;
   padding:1.25rem 1.1rem;gap:.75rem;
 }
 #ytResults{
   flex:1;min-height:0;
   overflow-y:auto;
-  -webkit-overflow-scrolling:touch; /* iOS momentum scroll */
+  -webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
   display:flex;flex-direction:column;gap:.55rem;
   padding-right:.25rem;
-  touch-action:pan-y; /* allow vertical finger scroll */
+  touch-action:pan-y;
 }
 .ytr { background:rgba(18,18,28,.9); border:1px solid var(--ridge); border-radius:7px; cursor:pointer; transition:background .15s,transform .12s; overflow:hidden; flex-shrink:0; }
 .ytr:hover { background:rgba(40,40,60,.95); transform:translateY(-1px); }
@@ -465,27 +463,15 @@ body.light .bp{background:linear-gradient(135deg,#16a34a,#0f6630);color:#fff;box
 .ytrtitle { font-size:.78rem; font-weight:500; line-height:1.35; color:var(--bone); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .ytrchan { font-size:.7rem; color:var(--ash); }
 
-/* ── MOBILE APP (webintoapp) ─────────────────────────────
-   Aplicado apenas quando body.mob está presente (detectado via JS).
-   Desktop permanece 100% intacto.
-──────────────────────────────────────────────────────── */
-
-/* Alvos de toque mínimos sem inflar o visual */
 body.mob .tbtn     { min-height:44px; }
 body.mob .btn      { min-height:44px; }
 body.mob .vcbtn    { padding:.45rem; min-width:36px; min-height:36px; }
 body.mob .cx       { width:24px; height:24px; }
 body.mob .gifbtn   { width:38px; height:38px; }
 body.mob .inp, body.mob .mi, body.mob .si { min-height:46px; }
-
-/* Evita zoom automático no iOS (font-size >= 16px) */
 body.mob .inp, body.mob .mi, body.mob .si,
 body.mob .msgbar input, body.mob .linput input { font-size:16px; }
-
-/* Handle de resize sempre visível no touch */
 body.mob .rzh { opacity:1 !important; }
-
-/* Toast não sobrepõe a msgbar */
 body.mob .toast { top:auto; bottom:5.5rem; }
 </style>
 </head>
@@ -693,7 +679,6 @@ body.mob .toast { top:auto; bottom:5.5rem; }
 
 <script>
 'use strict';
-/* ── CONSTANTS ── */
 const SUPA_URL  = 'https://vhflsjrawbvmokyzegef.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZoZmxzanJhd2J2bW9reXplZ2VmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjY4OTksImV4cCI6MjA5NDU0Mjg5OX0._ej361ZjDBcnFuBHn3YIhvGmpRhZLWhG8Rth4p6ugZ0';
 const TENOR_KEY = 'LIVDSRZULELA';
@@ -701,14 +686,13 @@ const YT_CLIENT_ID = '1076461455830-tgstle9p0ofpviqr8qd5puc9frp9321n.apps.google
 const COLORS     = ['#c45c5c','#5c7ec4','#5cc47e','#c4a05c','#9b5cc4','#5cc4c4','#c45ca0','#8a9098'];
 const DRAWCOLORS = ['#eae6de','#c45c5c','#5c7ec4','#5cc47e','#c4a05c','#f97316','#9b5cc4','#000000'];
 const TBPOS      = [{k:'top',l:'↑ Topo'},{k:'bottom',l:'↓ Base'},{k:'left',l:'← Esq'},{k:'right',l:'→ Dir'}];
-const HEAD=32, CTRL=40, VID_W=460, VID_H=258; // video card dimensions
+const HEAD=32, CTRL=40, VID_W=460, VID_H=258;
 
-/* ── STATE ── */
 let U        = {name:'',email:'',photo:'',id:'',color:'#c45c5c'};
 let room     = null;
 let els      = [];
 let peers    = {};
-let ytPlrs   = {};  // uid -> YT.Player
+let ytPlrs   = {};
 let ytReady  = false;
 let gifMode  = 'canvas';
 let tbPos    = 'top';
@@ -717,22 +701,15 @@ let zTop     = 10;
 let hbTimer  = null;
 let _supa    = null;
 let _ch      = null;
-let channel  = null; // alias for _ch
-let ytGToken = localStorage.getItem('tfm_yt_token') || null; // Google OAuth access token para YouTube Data API
+let channel  = null;
+let ytGToken = localStorage.getItem('tfm_yt_token') || null;
 
-/* drag/resize */
 let D=null, R=null, raf=null, px=0,py=0,pw=0,ph=0;
 
-/* draw */
 let drawMode=false, drawing=false, eraser=false;
 let drawColor='#eae6de', drawHist=[], lastDX=0, lastDY=0;
 
-/* ── INIT ── */
 document.addEventListener('DOMContentLoaded', ()=>{
-  /* ── MOBILE DETECTION (webintoapp) ──
-     Aplica body.mob apenas em dispositivos touch com UA móvel.
-     Desktop permanece sem nenhuma alteração.
-  ── */
   const isMob = ('ontouchstart' in window) &&
     /Mobi|Android|iPhone|iPad|iPod|webOS/i.test(navigator.userAgent);
   if(isMob) document.body.classList.add('mob');
@@ -755,7 +732,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   setTimeout(()=>{
     const el=document.getElementById('intro');
     const iv=document.getElementById('introV');
-    // Cross-fade: both animate simultaneously
     el.classList.add('out');
     iv.classList.add('vis');
     setTimeout(()=>el.remove(), 750);
@@ -767,7 +743,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 });
 function onYouTubeIframeAPIReady(){ ytReady=true; }
 
-/* ── HELPERS ── */
 const $  = id => document.getElementById(id);
 const qs = sel => document.querySelector(sel);
 function toast(msg,type=''){
@@ -788,13 +763,11 @@ function setConnStatus(s){
   dot.style.background=color; lbl.textContent=text;
 }
 
-/* ── AUTH PHOTO ── */
 function handlePhoto(input,form){
   const f=input.files[0]; if(!f) return;
   const r=new FileReader(); r.onload=e=>{ U.photo=e.target.result; const w=$(form==='login'?'loginPP':'signupPP'); w.innerHTML=`<img src="${U.photo}"><input type="file" accept="image/*" onchange="handlePhoto(this,'${form}')">`; }; r.readAsDataURL(f);
 }
 
-/* ── AUTH ── */
 function checkAuth(){ try{ const s=localStorage.getItem('tfm_u'); if(s){U=JSON.parse(s);goLanding();}else goAuth(); }catch{goAuth();} }
 function goAuth(){ setScene('authScene'); $('msgbar').classList.remove('show'); $('ytPanel').classList.remove('on'); }
 function goLanding(){ setScene('landingScene'); $('msgbar').classList.remove('show'); $('ytPanel').classList.remove('on'); }
@@ -817,7 +790,6 @@ function doSignup(){
 function doLogout(){ if(!confirm('Sair da conta?'))return; localStorage.removeItem('tfm_u'); location.reload(); }
 function saveU(){ localStorage.setItem('tfm_u',JSON.stringify(U)); }
 
-/* ── SETTINGS ── */
 function buildColors(){
   const row=$('colorRow'); if(!row)return; row.innerHTML='';
   COLORS.forEach(c=>{ const ch=document.createElement('div'); ch.className='cc'+(c===U.color?' active':''); ch.style.background=c; ch.title=c; ch.onclick=()=>{ document.querySelectorAll('.cc').forEach(x=>x.classList.remove('active')); ch.classList.add('active'); U.color=c; }; row.appendChild(ch); });
@@ -851,7 +823,6 @@ function applyTbPos(pos){
   else if(pos==='right'){tb.classList.add('tb-right');rb.style.flexDirection='row';rb.appendChild(tb);}
 }
 
-/* ── ROOM ── */
 function createRoom(){ const c='THERE'+Math.random().toString(36).substr(2,6).toUpperCase(); room={code:c}; toast('Sala '+c+' criada','ok'); enterRoom(); }
 function joinRoom(){ const c=$('roomInput').value.trim().toUpperCase(); if(!c){toast('Digite um código','err');return;} room={code:c}; enterRoom(); }
 function enterRoom(){
@@ -859,14 +830,12 @@ function enterRoom(){
   $('items').innerHTML=''; $('partsList').innerHTML='';
   $('parts').classList.remove('on');
   els=[]; ytPlrs={}; peers={}; zTop=10;
-  // Reset draw state
   drawMode=false; drawing=false; eraser=false; drawHist=[];
   $('drawCanvas').classList.remove('active');
   $('drawBtn').classList.remove('active');
   $('drawBar').classList.remove('on');
   $('items').style.pointerEvents='';
   $('drawCanvas').getContext('2d').clearRect(0,0,$('drawCanvas').width,$('drawCanvas').height);
-  // Toolbar position
   const pos=localStorage.getItem('tfm_tb')||'top'; tbPos=pos;
   const rs=$('roomScene'),rb=$('rbody'),tb=$('toolbar');
   if(tb.parentNode)tb.parentNode.removeChild(tb); rs.insertBefore(tb,rb); applyTbPos(pos);
@@ -875,7 +844,6 @@ function enterRoom(){
   openChannel(room.code);
   startHB();
   goRoom();
-  // Init drawCanvas size AFTER scene is visible (double rAF ensures layout is complete)
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     const dc=$('drawCanvas'),cw=$('cw');
     if(dc&&cw&&cw.clientWidth>0){ dc.width=cw.clientWidth; dc.height=cw.clientHeight; }
@@ -890,7 +858,6 @@ function leaveRoom(){
 }
 function copyCode(){ if(!room)return; navigator.clipboard.writeText(room.code).then(()=>toast('Código copiado','ok')).catch(()=>toast('Erro','err')); }
 
-/* ── CANVAS ── */
 function drawGrid(){
   const cv=$('bgCanvas'),w=$('cw'); if(!cv||!w)return;
   cv.width=w.clientWidth; cv.height=w.clientHeight;
@@ -909,7 +876,6 @@ function resizeDC(){
   if(saved)dc.getContext('2d').putImageData(saved,0,0);
 }
 
-/* ── AVATAR ── */
 function spawnMyAv(){
   const c=$('items');
   const ex=c.querySelector('.av-wrap[data-uid="'+U.id+'"]'); if(ex)ex.remove();
@@ -922,7 +888,6 @@ function mkAvEl(u){ const av=document.createElement('div'); av.className='av'; a
 function mkAvName(name){ const lbl=document.createElement('div'); lbl.className='av-name'; lbl.textContent=name||'User'; return lbl; }
 function refreshAv(wrap,u){ const av=wrap.querySelector('.av'),lbl=wrap.querySelector('.av-name'); if(av){av.style.background=`linear-gradient(135deg,${u.color},${darken(u.color)})`;if(u.photo)av.innerHTML=`<img src="${u.photo}">`;else av.textContent=(u.name||'A').charAt(0).toUpperCase();} if(lbl)lbl.textContent=u.name||'Você'; }
 
-/* ── SUPABASE CHANNEL ── */
 function getSupa(){ if(!_supa)_supa=window.supabase.createClient(SUPA_URL,SUPA_ANON); return _supa; }
 function openChannel(code){
   closeChannel();
@@ -934,7 +899,6 @@ function openChannel(code){
 function closeChannel(){ if(!_ch)return; broadcast({type:'LEAVE',uid:U.id}); try{getSupa().removeChannel(_ch);}catch(e){} _ch=null; channel=null; }
 function broadcast(msg){ if(!_ch)return; _ch.send({type:'broadcast',event:'msg',payload:msg}).catch(()=>{}); }
 
-/* ── MSG HANDLER ── */
 function handleMsg(msg){
   if(!msg?.type||msg.uid===U.id)return;
   switch(msg.type){
@@ -965,7 +929,6 @@ function broadcastMyInfo(){
 function startHB(){ stopHB(); hbTimer=setInterval(()=>{ broadcastMyInfo(); const now=Date.now(); Object.keys(peers).forEach(uid=>{if(now-peers[uid].ts>10000)removePeer(uid);}); },4000); }
 function stopHB(){ clearInterval(hbTimer); hbTimer=null; }
 
-/* ── PEERS ── */
 function renderPeer(uid,info){
   if(uid===U.id)return;
   let wrap=qs('.av-wrap[data-uid="'+uid+'"]');
@@ -983,7 +946,6 @@ function movePeerAv(uid,x,y){ const w=qs('.av-wrap[data-uid="'+uid+'"]'); if(w){
 function removePeer(uid){ delete peers[uid]; const w=qs('.av-wrap[data-uid="'+uid+'"]'); if(w)w.remove(); const li=qs('.pi[data-uid="'+uid+'"]'); if(li)li.remove(); }
 function showPeerBubble(uid,c,gif){ const w=qs('.av-wrap[data-uid="'+uid+'"]'); if(w)showBubble(w,c,gif); }
 
-/* ── STATE SYNC ── */
 function sendState(toUid){
   const items=els.filter(e=>e.dataset.itemId).map(e=>({type:e.dataset.type,id:e.dataset.itemId,x:parseInt(e.style.left)||0,y:parseInt(e.style.top)||0,w:parseInt(e.style.width)||0,h:parseInt(e.style.height)||0,src:e.dataset.src||'',vid:e.dataset.vid||''}));
   broadcast({type:'STATE_SYNC',to:toUid,items,drawImg:''});
@@ -1020,7 +982,6 @@ function applyMv(id,x,y){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.styl
 function applyRz(id,w,h){ const el=qs('[data-item-id="'+id+'"]'); if(el){el.style.width=w+'px';el.style.height=h+'px'; const uid=el.dataset.ytuid; if(uid){const ypc=$('ypc-'+uid);if(ypc){ypc.style.width=w+'px';ypc.style.height=Math.max(80,h-HEAD-CTRL)+'px';} const p=ytPlrs[uid];if(p&&p.setSize)p.setSize(Math.round(w),Math.max(80,Math.round(h)-HEAD-CTRL));}} }
 function applyVS(uid,action,time){ const p=ytPlrs[uid]; if(!p)return; try{if(Math.abs(p.getCurrentTime()-time)>1.5)p.seekTo(time,true);if(action==='play')p.playVideo();else if(action==='pause')p.pauseVideo();}catch(e){} }
 
-/* ── DRAW ── */
 function buildDrawColors(){
   const row=$('drawColors'); if(!row)return;
   DRAWCOLORS.forEach(c=>{ const ch=document.createElement('div'); ch.className='dc'+(c===drawColor?' active':''); ch.style.background=c; ch.title=c; ch.onclick=()=>setDrawColor(c); row.appendChild(ch); });
@@ -1060,27 +1021,20 @@ function initDraw(){
     lastDX=p.x; lastDY=p.y;
   }
   function onUp(){ drawing=false; }
-  // Mouse: start on canvas, continue on document
   dc.addEventListener('mousedown',onDown,{passive:false});
   document.addEventListener('mousemove',e=>{if(drawMode&&drawing)onMove(e);},{passive:false});
   document.addEventListener('mouseup',onUp);
-  // Touch: capture phase so it beats initPointer's bubble listeners
   dc.addEventListener('touchstart',e=>{if(!drawMode||e.touches.length!==1)return; e.preventDefault(); e.stopPropagation(); onDown(e);},{passive:false,capture:true});
   document.addEventListener('touchmove',e=>{if(!drawMode||!drawing||e.touches.length!==1)return; e.preventDefault(); onMove(e);},{passive:false,capture:true});
   document.addEventListener('touchend',()=>{if(drawing)onUp();},{capture:true});
 }
 
-/* ── POINTER (drag + resize) ── */
 function initPointer(){
   const items=$('items'),cap=$('capture');
-  // Keep iframes pointer-events:none so rzh handle always works
-  // Re-enable briefly on vcbtn click so YT can process it
   const disIf=()=>document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='none');
   const enIf= ()=>document.querySelectorAll('iframe').forEach(f=>f.style.pointerEvents='');
   disIf();
   document.addEventListener('click',e=>{ if(e.target.closest('.vcbtn')){ enIf(); setTimeout(disIf,1200); } });
-  /* Em mobile/WebView, touchstart chega antes do click; habilita o iframe
-     a tempo de o YT.Player receber o playVideo() programático. */
   document.addEventListener('touchstart',e=>{ if(e.target.closest('.vcbtn')){ enIf(); setTimeout(disIf,1500); } },{passive:true});
 
   items.addEventListener('mousedown',e=>{ if(e.button!==0||drawMode)return; if(beginIA(e.target,e.clientX,e.clientY))e.preventDefault(); },{passive:false});
@@ -1146,7 +1100,6 @@ function select(el){ deselect(); el.classList.add('sel'); }
 function deselect(){ document.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel')); }
 function delSel(){ const s=qs('.card.sel'); if(!s)return; const id=s.dataset.itemId; s.remove(); els=els.filter(e=>e!==s); if(id)broadcast({type:'REMOVE_ITEM',itemId:id}); toast('Removido'); }
 
-/* ── MESSAGES ── */
 function handleMsgKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
 function sendMsg(){
   const inp=$('msgInput'),txt=inp.value.trim(); if(!txt)return;
@@ -1161,7 +1114,6 @@ function showBubble(wrap,content,isGif){
   setTimeout(()=>{ if(b.parentElement){b.classList.add('fading');setTimeout(()=>b.remove(),480);} },isGif?10000:8000);
 }
 
-/* ── GIF — Tenor v1 ── */
 function openGifPicker(mode){ gifMode=mode; $('gifModal').classList.add('on'); setTimeout(()=>$('gifSearch').focus(),80); }
 async function searchGifs(){
   const q=$('gifSearch').value.trim(), r=$('gifResults');
@@ -1188,13 +1140,11 @@ function pickGif(url){
   else{ const c=$('items'),id='gif_'+Date.now(); mkGif(url,100+Math.random()*300,100+Math.random()*220,id,c,true); toast('GIF adicionado'); }
 }
 
-/* ── IMAGE ── */
 function openImageModal(){ $('imageModal').classList.add('on'); $('imgPrev').style.display='none'; $('imgFile').value=''; pendImg=null; }
 function previewImg(){ const f=$('imgFile').files[0]; if(!f)return; const r=new FileReader(); r.onload=e=>{ pendImg=e.target.result; $('imgPrevEl').src=pendImg; $('imgPrev').style.display='block'; }; r.readAsDataURL(f); }
 function confirmImg(){ if(!pendImg){toast('Selecione uma imagem','err');return;} const c=$('items'),id='img_'+Date.now(); mkImg(pendImg,80+Math.random()*300,80+Math.random()*220,id,c,true); toast('Imagem adicionada'); pendImg=null; closeModal('imageModal'); }
 function clearImg(){ pendImg=null; $('imgPrev').style.display='none'; $('imgFile').value=''; }
 
-/* ── THEME TOGGLE ── */
 function toggleTheme(){
   document.body.classList.toggle('light');
   const isLight=document.body.classList.contains('light');
@@ -1215,7 +1165,6 @@ function updateThemeBtn(isLight){
   document.addEventListener('DOMContentLoaded',()=>updateThemeBtn(isLight));
 })();
 
-/* ── UNIVERSAL VIDEO ── */
 function openUniversalVideoPanel(){ if(!room){toast('Entre em uma sala primeiro','err');return;} $('univVideoPanel').classList.add('on'); setTimeout(()=>$('univVideoUrl').focus(),80); }
 function closeUniversalVideoPanel(e){ if(!e||e.currentTarget===e.target||!e.type) $('univVideoPanel').classList.remove('on'); }
 function extractYT(url){ const m=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/); return m?m[1]:null; }
@@ -1230,7 +1179,6 @@ function addUniversalVideo(){
   const vimId=extractVimeo(url);
   if(vimId){ mkIframeVid('https://player.vimeo.com/video/'+vimId+'?autoplay=0',x,y,id,c,'Vimeo'); $('univVideoPanel').classList.remove('on'); toast('Vimeo adicionado'); return; }
   if(isDirectVideo(url)){ mkHtmlVid(url,x,y,id,c); $('univVideoPanel').classList.remove('on'); toast('Vídeo direto adicionado'); return; }
-  // Generic iframe attempt
   mkIframeVid(url,x,y,id,c,'Vídeo'); $('univVideoPanel').classList.remove('on'); toast('Vídeo incorporado (iframe)');
 }
 function mkIframeVid(embedUrl,x,y,id,container,label){
@@ -1251,7 +1199,6 @@ function mkHtmlVid(src,x,y,id,container){
   const rzh=document.createElement('div'); rzh.className='rzh'; w.appendChild(rzh);
   container.appendChild(w); els.push(w);
 }
-/* Keep old openVideoModal as alias */
 function openVideoModal(){ openUniversalVideoPanel(); }
 function addVideo(){ addUniversalVideo(); }
 function mkVid(vid,x,y,id,container,broadcastIt){
@@ -1265,12 +1212,6 @@ function mkVid(vid,x,y,id,container,broadcastIt){
   setTimeout(()=>initYT(uid,vid,VID_W,VID_H),300);
 }
 function initYT(uid,vid,iw,ih,_retries){
-  /* ── MOBILE (webintoapp): iframe direto + postMessage ──────────────────
-     WebViews Android/iOS bloqueiam o callback onYouTubeIframeAPIReady com
-     frequência. Em vez de depender do YT IFrame API, criamos o <iframe>
-     diretamente com ?enablejsapi=1 e usamos postMessage para controle.
-     O objeto ytPlrs[uid] expõe a mesma interface que YT.Player.
-  ─────────────────────────────────────────────────────────────────────── */
   if(document.body.classList.contains('mob')){
     const cont=$('ypc-'+uid); if(!cont||cont.dataset.ytinit)return; cont.dataset.ytinit='1';
     const origin=location.origin||('https://'+location.hostname)||'https://localhost';
@@ -1281,7 +1222,6 @@ function initYT(uid,vid,iw,ih,_retries){
     ifr.allow='autoplay; fullscreen; encrypted-media; picture-in-picture';
     ifr.allowFullscreen=true; ifr.setAttribute('playsinline','');
     cont.appendChild(ifr);
-    // Wall-clock time tracking — accurate even when postMessage is delayed
     let _base=0, _playing=false, _wall=0;
     const msg=(func,args)=>{ try{ ifr.contentWindow.postMessage(JSON.stringify({event:'command',func,args:args||''}), '*'); }catch(e){} };
     const proxy={
@@ -1292,7 +1232,6 @@ function initYT(uid,vid,iw,ih,_retries){
       setSize   (w,h){ ifr.width=String(w); ifr.height=String(h); }
     };
     ytPlrs[uid]=proxy;
-    // Sync play/pause state from iframe YT API messages (1=playing, 2=paused, 0=ended)
     window.addEventListener('message',ev=>{
       try{
         const d=JSON.parse(ev.data);
@@ -1300,16 +1239,13 @@ function initYT(uid,vid,iw,ih,_retries){
           if(d.info===1){ _base=proxy.getCurrentTime(); _wall=Date.now(); _playing=true; }
           else if(d.info===2||d.info===0){ _base=proxy.getCurrentTime(); _playing=false; }
         }
-        // infoDelivery: only correct _base when paused to avoid overwriting wall-clock estimate
         if(!_playing&&d.info?.currentTime!=null) _base=d.info.currentTime;
       }catch(e){}
     });
-    // Timer display — same interval as desktop
     setInterval(()=>{ const el=$('vt-'+uid); if(!el)return; try{el.textContent=fmtTime(proxy.getCurrentTime());}catch(e){}; },500);
     return;
   }
 
-  /* ── DESKTOP: YT IFrame API padrão ──────────────────────────────────── */
   _retries=(_retries||0)+1;
   if(!ytReady && window.YT && window.YT.Player){ ytReady=true; }
   if(!ytReady){
@@ -1329,7 +1265,6 @@ function vPlay(uid){ const p=ytPlrs[uid]; if(p){p.playVideo();broadcast({type:'V
 function vPause(uid){ const p=ytPlrs[uid]; if(p){p.pauseVideo();broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:p.getCurrentTime()});} }
 function vSeek(uid,d){ const p=ytPlrs[uid]; if(p){const t=Math.max(0,(p.getCurrentTime()||0)+d);p.seekTo(t,true);broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:t});} }
 
-/* ── CARD CREATORS ── */
 function mkGif(src,x,y,id,c,emit){
   const w=document.createElement('div'); w.className='card gif-card'; w.dataset.type='gif'; w.dataset.src=src; w.dataset.itemId=id;
   Object.assign(w.style,{position:'absolute',left:x+'px',top:y+'px',zIndex:++zTop,width:'240px',height:'210px',display:'flex',flexDirection:'column'});
@@ -1350,7 +1285,6 @@ function mkImg(src,x,y,id,c,emit){
 }
 function removeEl(el){ if(!el)return; const id=el.dataset.itemId; el.remove(); els=els.filter(e=>e!==el); if(id)broadcast({type:'REMOVE_ITEM',itemId:id}); toast('Removido'); }
 
-/* ── MUSIC PANEL ── */
 function openMusicPanel(){
   if(!room){toast('Entre em uma sala primeiro','err');return;}
   $('musicPanel').classList.toggle('on');
@@ -1503,15 +1437,12 @@ function mToggle(uid){const p=ytPlrs[uid];if(!p)return;p.isPlaying()?p.pauseVide
 function mSeek(uid,d){const p=ytPlrs[uid];if(!p)return;const t=Math.max(0,(p.getCurrentTime()||0)+d);p.seekTo(t);}
 function mProgClick(e,uid){const p=ytPlrs[uid];if(!p)return;const r=e.currentTarget.getBoundingClientRect();const pct=(e.clientX-r.left)/r.width;const dur=p.getDuration();if(dur>0)p.seekTo(pct*dur);}
 
-/* ── YOUTUBE PANEL ── */
 function openYtPanel(){
   const panel=$('ytPanel'); if(!panel)return;
-  // Only open when inside a room
   if(!room){toast('Entre em uma sala primeiro','err');return;}
   panel.classList.toggle('on');
 }
 function closeYtPanel(e){
-  // If called from backdrop click, only close if the click was on the overlay itself
   if(e&&e.currentTarget===e.target||!e) $('ytPanel').classList.remove('on');
 }
 
@@ -1527,9 +1458,7 @@ function ytGoogleLogin(){
     `&response_type=token`+
     `&scope=${encodeURIComponent(scope)}`+
     `&prompt=select_account`;
-  // Abre em popup para manter estado da sala
   const w=window.open(url,'_blank','width=520,height=620,toolbar=no,menubar=no');
-  // Escuta redirecionamento via hash
   const poll=setInterval(()=>{
     try{
       if(!w||w.closed){clearInterval(poll);return;}
@@ -1539,10 +1468,10 @@ function ytGoogleLogin(){
         const params=new URLSearchParams(hash.slice(1));
         ytGToken=params.get('access_token');
         localStorage.setItem('tfm_yt_token', ytGToken);
-        ytUpdateLoginUI(); // this will fetch and cache the profile
+        ytUpdateLoginUI();
         toast('Conta Google conectada ✓');
       }
-    }catch(e){/* cross-origin enquanto redireciona */}
+    }catch(e){}
   },500);
 }
 function ytGoogleLogout(){
@@ -1555,8 +1484,6 @@ function ytUpdateLoginUI(){
   if(!loginBtn) return;
   if(ytGToken){
     loginBtn.style.display='none'; logoutBtn.style.display='flex'; searchSec.style.display='flex';
-    // Mostra perfil do cache imediatamente — SEM fazer fetch para Google aqui.
-    // O token será validado de verdade só quando o usuário pesquisar.
     const cached=JSON.parse(localStorage.getItem('tfm_yt_profile')||'null');
     if(cached&&cached.picture){
       userInfo.innerHTML=`<img src="${cached.picture}" style="width:26px;height:26px;border-radius:50%;object-fit:cover;border:1px solid var(--ridge)"><span style="font-size:.78rem;color:var(--ash)">${cached.name||'Conta Google'}</span>`;
@@ -1627,7 +1554,6 @@ function ytAddVideo(vid,title){
   toast('Adicionado: '+title.slice(0,30)+(title.length>30?'…':''));
 }
 
-/* ── PARTICIPANTS ── */
 function toggleParts(){ $('parts').classList.toggle('on'); }
 function upsertPart(uid,info,label){
   let li=qs('.pi[data-uid="'+uid+'"]');
@@ -1636,6 +1562,7 @@ function upsertPart(uid,info,label){
   li.innerHTML=`<div class="pav" style="background:${info.color||'#c45c5c'}">${avHtml}</div><div><div class="pname">${info.name||'User'}</div><div class="pstatus">${label||'Online'}</div></div>`;
 }
 </script>
+
 <!-- YouTube Panel -->
 <div class="sp" id="ytPanel" onclick="closeYtPanel(event)">
   <div class="sbox" onclick="event.stopPropagation()">
