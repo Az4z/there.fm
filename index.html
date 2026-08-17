@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#08110e" />
+  <title>Caelestia Broadcast</title>
+  <style>
+    :root{
+      --bg:#07110e;
+      --bg2:#0a1411;
+      --panel:rgba(14,26,22,.72);
+      --panel2:rgba(9,18,15,.82);
+      --line:rgba(46,229,139,.18);
+      --line2:rgba(255,255,255,.08);
+      --green:#2ee58b;
+      --green2:#1dba73;
+      --text:#eaf6f0;
+      --muted:#9fb8ad;
+      --shadow:0 24px 80px rgba(0,0,0,.5);
+      --radius:24px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      color:var(--text);
+      font:16px/1.55 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(46,229,139,.12), transparent 55%),
+        radial-gradient(800px 500px at 82% 22%, rgba(29,186,115,.08), transparent 52%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+      overflow-x:hidden;
+    }
+
+    .noise{
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.07;
+      background-image:
+        linear-gradient(rgba(255,255,255,.75) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.75) 1px, transparent 1px);
+      background-size:3px 3px;
+      mix-blend-mode:overlay;
+    }
+
+    .wrap{
+      min-height:100%;
+      display:grid;
+      place-items:center;
+      padding:24px;
+    }
+
+    .shell{
+      width:min(1180px,100%);
+      border:1px solid var(--line2);
+      border-radius:32px;
+      background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      backdrop-filter:blur(18px);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      align-items:center;
+      padding:18px 22px;
+      border-bottom:1px solid var(--line2);
+      background:rgba(0,0,0,.12);
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      text-transform:uppercase;
+      letter-spacing:.14em;
+      font-size:.78rem;
+      color:var(--muted);
+    }
+
+    .dot{
+      width:11px;
+      height:11px;
+      border-radius:50%;
+      background:var(--green);
+      box-shadow:0 0 18px rgba(46,229,139,.7);
+    }
+
+    .status{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:var(--muted);
+      font-size:.92rem;
+    }
+
+    .pill{
+      padding:7px 12px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(46,229,139,.06);
+    }
+
+    .content{
+      display:grid;
+      grid-template-columns:1.3fr .95fr;
+    }
+
+    .hero{
+      padding:56px 42px 42px;
+      border-right:1px solid var(--line2);
+    }
+
+    h1{
+      margin:0 0 14px;
+      font-size:clamp(2.7rem,6vw,5.4rem);
+      line-height:.92;
+      letter-spacing:-.07em;
+    }
+
+    .lead{
+      max-width:60ch;
+      color:var(--muted);
+      font-size:1.05rem;
+    }
+
+    .cta-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:28px;
+    }
+
+    .btn{
+      appearance:none;
+      border:1px solid var(--line);
+      color:var(--text);
+      background:rgba(46,229,139,.08);
+      padding:13px 18px;
+      border-radius:14px;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      transition:.2s ease;
+      cursor:pointer;
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+      border-color:rgba(46,229,139,.42);
+      box-shadow:0 0 0 3px rgba(46,229,139,.08);
+    }
+
+    .btn.secondary{
+      background:rgba(255,255,255,.03);
+    }
+
+    .grid{
+      display:grid;
+      gap:16px;
+      margin-top:34px;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+
+    .card{
+      border:1px solid var(--line2);
+      background:var(--panel);
+      border-radius:var(--radius);
+      padding:18px;
+      min-height:128px;
+    }
+
+    .card h3{
+      margin:0 0 8px;
+      font-size:.78rem;
+      text-transform:uppercase;
+      letter-spacing:.15em;
+      color:var(--muted);
+    }
+
+    .card strong{
+      display:block;
+      font-size:1.15rem;
+      margin-bottom:6px;
+    }
+
+    .card p{
+      margin:0;
+      color:var(--muted);
+    }
+
+    .side{
+      padding:34px;
+      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+    }
+
+    .player{
+      border:1px solid var(--line);
+      border-radius:28px;
+      background:
+        radial-gradient(1000px 420px at 50% 0%, rgba(46,229,139,.16), transparent 60%),
+        linear-gradient(180deg, rgba(8,17,14,.92), rgba(10,20,16,.98));
+      min-height:360px;
+      display:grid;
+      place-items:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .player::before{
+      content:"";
+      position:absolute;
+      inset:16px;
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:22px;
+    }
+
+    .player .core{
+      position:relative;
+      z-index:1;
+      text-align:center;
+      padding:28px;
+    }
+
+    .ring{
+      width:96px;
+      height:96px;
+      border-radius:50%;
+      border:1px solid rgba(46,229,139,.35);
+      margin:0 auto 18px;
+      display:grid;
+      place-items:center;
+      box-shadow:0 0 40px rgba(46,229,139,.12) inset;
+    }
+
+    .play{
+      width:0;
+      height:0;
+      border-left:22px solid var(--green);
+      border-top:14px solid transparent;
+      border-bottom:14px solid transparent;
+      margin-left:6px;
+    }
+
+    .meta{
+      display:grid;
+      gap:12px;
+      margin-top:16px;
+    }
+
+    .row{
+      display:flex;
+      justify-content:space-between;
+      gap:20px;
+      padding:14px 16px;
+      border:1px solid var(--line2);
+      border-radius:16px;
+      background:rgba(255,255,255,.02);
+      color:var(--muted);
+    }
+
+    .row b{
+      color:var(--text);
+      font-weight:600;
+    }
+
+    .form{
+      display:flex;
+      gap:10px;
+      margin-top:18px;
+      flex-wrap:wrap;
+    }
+
+    input{
+      flex:1 1 220px;
+      min-width:0;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.03);
+      color:var(--text);
+      padding:13px 14px;
+      outline:none;
+    }
+
+    input::placeholder{color:#6f8b80}
+
+    input:focus{
+      border-color:rgba(46,229,139,.5);
+      box-shadow:0 0 0 3px rgba(46,229,139,.08);
+    }
+
+    .footer{
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+      padding:18px 22px;
+      border-top:1px solid var(--line2);
+      color:var(--muted);
+      font-size:.9rem;
+    }
+
+    .section-title{
+      margin:0 0 14px;
+      font-size:.8rem;
+      text-transform:uppercase;
+      letter-spacing:.18em;
+      color:var(--muted);
+    }
+
+    .embed{
+      margin-top:28px;
+      border:1px solid var(--line2);
+      border-radius:22px;
+      overflow:hidden;
+      background:rgba(0,0,0,.22);
+    }
+
+    .video-wrap{
+      position:relative;
+      padding-bottom:56.25%;
+      height:0;
+      overflow:hidden;
+    }
+
+    .video-wrap iframe{
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      border:0;
+    }
+
+    @media (max-width: 920px){
+      .content{grid-template-columns:1fr}
+      .hero{border-right:0; border-bottom:1px solid var(--line2)}
+      .grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="noise"></div>
+
+  <main class="wrap">
+    <section class="shell">
+      <div class="topbar">
+        <div class="brand"><span class="dot"></span> Caelestia Broadcast</div>
+        <div class="status"><span class="pill">LIVE</span><span>Sala privada</span></div>
+      </div>
+
+      <div class="content">
+        <div class="hero">
+          <h1>broadcast privado<br>com estética shell.</h1>
+          <p class="lead">
+            Um site escuro, limpo e intelectual, inspirado em desktop Linux, com verde profundo,
+            transparência e foco total na transmissão.
+          </p>
+
+          <div class="cta-row">
+            <a class="btn" href="#acesso">Entrar na sala</a>
+            <a class="btn secondary" href="#programacao">Ver programação</a>
+          </div>
+
+          <div class="grid">
+            <div class="card">
+              <h3>Status</h3>
+              <strong>Ao vivo</strong>
+              <p>Transmissão ativa com acesso restrito.</p>
+            </div>
+
+            <div class="card">
+              <h3>Formato</h3>
+              <strong>Rave / Rádio / Vídeo</strong>
+              <p>Experiência híbrida, minimalista e noturna.</p>
+            </div>
+
+            <div class="card">
+              <h3>Clima</h3>
+              <strong>Green shell</strong>
+              <p>Interfaces modulares, suaves e elegantes.</p>
+            </div>
+          </div>
+
+          <div class="embed" id="programacao">
+            <div class="video-wrap">
+              <iframe
+                src="https://www.youtube.com/embed/SEU_ID_AQUI"
+                title="Live stream"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
+        </div>
+
+        <aside class="side">
+          <div class="player">
+            <div class="core">
+              <div class="ring"><div class="play"></div></div>
+              <strong style="font-size:1.5rem; display:block; margin-bottom:6px;">Sala Privada 01</strong>
+              <div style="color:var(--muted)">stream criptografado • 128 pessoas</div>
+            </div>
+          </div>
+
+          <div class="meta" id="acesso">
+            <div class="row"><span>Código de acesso</span><b>convite-only</b></div>
+            <div class="row"><span>Qualidade</span><b>1080p / low latency</b></div>
+            <div class="row"><span>Próxima sessão</span><b>22:00</b></div>
+          </div>
+
+          <form class="form" onsubmit="event.preventDefault(); alert('Demo pronta para GitHub Pages.');">
+            <input type="password" placeholder="Digite o código" aria-label="Código de acesso" />
+            <button class="btn" type="submit">Liberar</button>
+          </form>
+        </aside>
+      </div>
+
+      <div class="footer">
+        <span>Arquivo • Sessões • Curadoria</span>
+        <span>Caelestia Shell Green / HTML puro</span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
