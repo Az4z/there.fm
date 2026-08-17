@@ -1,1 +1,21 @@
+.window.minimized {
+  width: 220px;
+  min-height: auto;
+}
 
+.window.minimized .window-body {
+  display: none;
+}
+
+.dot.offline {
+  background: var(--danger);
+  box-shadow: 0 0 12px var(--danger);
+}
+
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
