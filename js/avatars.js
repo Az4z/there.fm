@@ -259,4 +259,4 @@ export async function broadcastJoin() {
 
 export function initializeLocalAvatar() {
   return createLocalAvatar();
-    }
+}
