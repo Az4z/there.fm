@@ -4,56 +4,145 @@ import {
   normalizeName,
   normalizeRoomCode,
   randomColor,
-  setView,
   toast
 } from './utils.js';
+import {
+  loadStoredUser,
+  loadPreferences,
+  saveUser
+} from './storage.js';
+import {
+  showLanding,
+  showRoom
+} from './router.js';
+import {
+  joinRoom,
+  leaveRoom,
+  onRoomMessage
+} from './supabase-room.js';
 
-function createLocalUser() {
-  const saved = JSON.parse(localStorage.getItem('tfm_user') || 'null');
-
-  const user = {
-    id: saved?.id || crypto.randomUUID(),
-    name: saved?.name || '',
-    color: saved?.color || randomColor(),
-    photo: saved?.photo || '',
-    frame: saved?.frame || '',
-    frame_scale: saved?.frame_scale || 1,
-    frame_x: saved?.frame_x || 0,
-    frame_y: saved?.frame_y || 0
-  };
-
-  state.user = user;
-  return user;
-}
-
-function saveLocalUser() {
-  if (!state.user) return;
-
-  localStorage.setItem(
-    'tfm_user',
-    JSON.stringify(state.user)
-  );
-}
+let removeRoomListener = null;
 
 function generateRoomCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
 
-  for (let i = 0; i < 6; i++) {
-    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  for (let index = 0; index < 6; index++) {
+    code += alphabet[
+      Math.floor(Math.random() * alphabet.length)
+    ];
   }
 
   return code;
 }
 
+function updateConnectionStatus(status) {
+  const element = $('connectionStatus');
+
+  if (!element) return;
+
+  const normalized = String(status || '').toUpperCase();
+
+  element.classList.toggle(
+    'online',
+    normalized === 'SUBSCRIBED'
+  );
+
+  element.classList.toggle(
+    'offline',
+    normalized !== 'SUBSCRIBED'
+  );
+
+  if (normalized === 'SUBSCRIBED') {
+    element.textContent = 'Online';
+  } else if (normalized === 'TIMED_OUT') {
+    element.textContent = 'Tempo esgotado';
+  } else if (normalized === 'CHANNEL_ERROR') {
+    element.textContent = 'Erro';
+  } else if (normalized === 'CLOSED') {
+    element.textContent = 'Fechado';
+  } else {
+    element.textContent = 'Conectando...';
+  }
+}
+
+async function enterRoom(code) {
+  if (!state.user?.name) {
+    toast('Digite seu nome', 'error');
+    return;
+  }
+
+  try {
+    const status = $('landingStatus');
+
+    if (status) {
+      status.textContent = 'Conectando à sala...';
+    }
+
+    showRoom(code);
+    updateConnectionStatus('JOINING');
+
+    await joinRoom(code);
+
+    if (status) {
+      status.textContent = '';
+    }
+
+    updateConnectionStatus('SUBSCRIBED');
+
+    window.dispatchEvent(
+      new CustomEvent('room:entered', {
+        detail: {
+          code: state.room.code
+        }
+      })
+    );
+
+    toast(`Você entrou na sala ${state.room.code}`, 'success');
+  } catch (error) {
+    console.error('Erro ao entrar na sala:', error);
+
+    await leaveRoom();
+    showLanding();
+    updateConnectionStatus('CLOSED');
+
+    if ($('landingStatus')) {
+      $('landingStatus').textContent =
+        'Não foi possível conectar. Verifique o Supabase.';
+    }
+
+    toast('Não foi possível entrar na sala', 'error');
+  }
+}
+
+async function exitRoom() {
+  await leaveRoom();
+
+  window.dispatchEvent(
+    new CustomEvent('room:left')
+  );
+
+  showLanding();
+  updateConnectionStatus('CLOSED');
+}
+
 function bindLandingEvents() {
   $('joinRoomBtn')?.addEventListener('click', () => {
-    $('joinRoomBox').hidden = !$('joinRoomBox').hidden;
-    $('roomCodeInput')?.focus();
+    const box = $('joinRoomBox');
+
+    if (!box) return;
+
+    box.hidden = !box.hidden;
+
+    if (!box.hidden) {
+      $('roomCodeInput')?.focus();
+    }
   });
 
   $('createRoomBtn')?.addEventListener('click', () => {
-    const name = normalizeName($('nameInput')?.value || '');
+    const name = normalizeName(
+      $('nameInput')?.value || ''
+    );
 
     if (!name) {
       toast('Digite seu nome', 'error');
@@ -62,17 +151,19 @@ function bindLandingEvents() {
     }
 
     state.user.name = name;
-    saveLocalUser();
+    saveUser();
 
-    const code = generateRoomCode();
-    window.dispatchEvent(
-      new CustomEvent('room:create', { detail: { code } })
-    );
+    enterRoom(generateRoomCode());
   });
 
   $('confirmJoinBtn')?.addEventListener('click', () => {
-    const name = normalizeName($('nameInput')?.value || '');
-    const code = normalizeRoomCode($('roomCodeInput')?.value || '');
+    const name = normalizeName(
+      $('nameInput')?.value || ''
+    );
+
+    const code = normalizeRoomCode(
+      $('roomCodeInput')?.value || ''
+    );
 
     if (!name) {
       toast('Digite seu nome', 'error');
@@ -87,28 +178,9 @@ function bindLandingEvents() {
     }
 
     state.user.name = name;
-    saveLocalUser();
+    saveUser();
 
-    window.dispatchEvent(
-      new CustomEvent('room:join', { detail: { code } })
-    );
-  });
-}
-
-function bindGlobalEvents() {
-  document.querySelectorAll('[data-close-modal]').forEach(button => {
-    button.addEventListener('click', () => {
-      const id = button.dataset.closeModal;
-      $(id).hidden = true;
-    });
-  });
-
-  document.querySelectorAll('.modal-backdrop').forEach(backdrop => {
-    backdrop.addEventListener('click', event => {
-      if (event.target === backdrop) {
-        backdrop.hidden = true;
-      }
-    });
+    enterRoom(code);
   });
 
   $('nameInput')?.addEventListener('keydown', event => {
@@ -124,21 +196,116 @@ function bindGlobalEvents() {
   });
 }
 
-function initialize() {
-  createLocalUser();
+function bindRoomEvents() {
+  $('leaveRoomBtn')?.addEventListener('click', () => {
+    if (window.confirm('Sair da sala?')) {
+      exitRoom();
+    }
+  });
 
-  if (state.user.name) {
+  $('copyCodeBtn')?.addEventListener('click', async () => {
+    const code = state.room?.code;
+
+    if (!code) {
+      toast('Você não está em uma sala', 'error');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(code);
+      toast('Código copiado', 'success');
+    } catch {
+      toast(`Código da sala: ${code}`, 'info');
+    }
+  });
+
+  $('participantsBtn')?.addEventListener('click', () => {
+    $('participantsPanel')?.classList.toggle('on');
+  });
+
+  $('closeParticipantsBtn')?.addEventListener('click', () => {
+    $('participantsPanel')?.classList.remove('on');
+  });
+
+  $('themeBtn')?.addEventListener('click', () => {
+    window.dispatchEvent(
+      new CustomEvent('theme:toggle')
+    );
+  });
+}
+
+function bindModalEvents() {
+  document.querySelectorAll('[data-close-modal]').forEach(button => {
+    button.addEventListener('click', () => {
+      const modal = $(button.dataset.closeModal);
+
+      if (modal) {
+        modal.hidden = true;
+      }
+    });
+  });
+
+  document.querySelectorAll('.modal-backdrop').forEach(modal => {
+    modal.addEventListener('click', event => {
+      if (event.target === modal) {
+        modal.hidden = true;
+      }
+    });
+  });
+}
+
+function bindGlobalEvents() {
+  window.addEventListener('room:status', event => {
+    updateConnectionStatus(
+      event.detail?.status
+    );
+  });
+
+  window.addEventListener('room:create', event => {
+    enterRoom(event.detail.code);
+  });
+
+  window.addEventListener('room:join', event => {
+    enterRoom(event.detail.code);
+  });
+
+  window.addEventListener('beforeunload', () => {
+    leaveRoom();
+  });
+}
+
+function initialize() {
+  loadPreferences();
+  loadStoredUser();
+
+  if (!state.user.color) {
+    state.user.color = randomColor();
+  }
+
+  if (state.user.name && $('nameInput')) {
     $('nameInput').value = state.user.name;
   }
 
-  setView('landingView', true);
-  setView('roomView', false);
+  showLanding();
+  updateConnectionStatus('CLOSED');
 
   bindLandingEvents();
+  bindRoomEvents();
+  bindModalEvents();
   bindGlobalEvents();
 
+  removeRoomListener = onRoomMessage(message => {
+    window.dispatchEvent(
+      new CustomEvent('room:message', {
+        detail: message
+      })
+    );
+  });
+
   window.dispatchEvent(
-    new CustomEvent('app:ready', { detail: { state } })
+    new CustomEvent('app:ready', {
+      detail: { state }
+    })
   );
 }
 
