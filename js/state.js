@@ -1,12 +1,18 @@
 export const state = {
   user: null,
+
   room: null,
   channel: null,
+  connection: 'offline',
+
   peers: new Map(),
   cards: new Map(),
+
   youtubePlayers: new Map(),
   musicPlayers: new Map(),
+
   selectedCard: null,
+
   drawing: {
     enabled: false,
     active: false,
@@ -14,10 +20,12 @@ export const state = {
     color: '#eae6de',
     size: 8,
     opacity: 1,
-    strokes: []
+    strokes: [],
+    revision: 0
   },
+
   ui: {
-    theme: 'dark',
-    toolbarPosition: 'top'
+    theme: localStorage.getItem('tfm_theme') || 'dark',
+    toolbarPosition: localStorage.getItem('tfm_tb') || 'top'
   }
 };
