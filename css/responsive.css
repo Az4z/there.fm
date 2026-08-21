@@ -1,1 +1,119 @@
+here@media (max-width: 720px) {
+  body {
+    font-size: 14px;
+  }
 
+  .landing-view {
+    padding: 1rem;
+  }
+
+  .landing-shell {
+    gap: 1.4rem;
+  }
+
+  .landing-card {
+    padding: 1rem;
+  }
+
+  .landing-actions {
+    display: grid;
+  }
+
+  .room-header {
+    align-items: flex-start;
+    padding: .55rem .7rem;
+  }
+
+  .room-brand {
+    font-size: .8rem;
+  }
+
+  .room-actions {
+    flex-wrap: wrap;
+    gap: .3rem;
+  }
+
+  .room-code-wrap {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .connection-status {
+    display: none;
+  }
+
+  .toolbar {
+    top: 68px;
+    right: .6rem;
+    left: .6rem;
+    justify-content: center;
+    max-width: calc(100vw - 1.2rem);
+    overflow-x: auto;
+    transform: none;
+  }
+
+  .tool-btn {
+    min-width: 34px;
+    height: 32px;
+    padding: 0 .45rem;
+  }
+
+  .draw-bar {
+    top: 112px;
+    right: .6rem;
+    left: .6rem;
+    max-width: calc(100vw - 1.2rem);
+    transform: none;
+  }
+
+  .chat-bar {
+    right: .6rem;
+    bottom: .6rem;
+    left: .6rem;
+  }
+
+  .modal-backdrop {
+    align-items: end;
+    padding: .6rem;
+  }
+
+  .modal-box {
+    max-height: calc(100vh - 1.2rem);
+    border-radius: var(--radius) var(--radius-small) var(--radius-small) var(--radius-small);
+  }
+
+  .inline-form {
+    align-items: stretch;
+  }
+
+  .inline-form .btn {
+    flex-shrink: 0;
+  }
+
+  .gif-results {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 420px) {
+  .room-brand {
+    display: none;
+  }
+
+  .room-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .landing-actions .btn {
+    width: 100%;
+  }
+
+  .modal-header,
+  .modal-content,
+  .music-search-area {
+    padding-right: .75rem;
+    padding-left: .75rem;
+  }
+}
