@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#06060a">
+<title>there.fm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://www.youtube.com/iframe_api" async></script>
+<script src="https://player.vimeo.com/api/player.js" async></script>
+<script src="https://player.twitch.tv/js/embed/v1.js" async></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js" defer></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bg"><div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="grain"></div></div>
+
+<div id="intro">
+  <div class="il">there.fm</div>
+  <div class="it">watch together, feel together</div>
+  <div class="ibar"></div>
+</div>
+
+<div id="capture"></div>
+
+<!-- Chat FAB — amigos/conversas, visível dentro e fora das salas -->
+<!-- Menu principal recolhível: Conversas e Quadro escondidos atrás do ✴,
+     abrindo pra cima com motion escalonado. Substitui os dois FABs soltos
+     que ficavam na tela principal (fora da sala). -->
+<div class="more-wrap main-more" id="mainMoreWrap">
+  <div class="more-pop" id="mainMorePop">
+    <button class="more-item" onclick="closeMainMoreMenu();openFriendsHub()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+      <span>Conversas</span>
+      <span class="fab-badge" id="fabBadge">0</span>
+    </button>
+    <button class="more-item" onclick="closeMainMoreMenu();openBoard()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M15.5 3H5a2 2 0 00-2 2v14a2 2 0 002 2h9l7-7V5a2 2 0 00-2-2h-3.5z"/><path d="M21 14h-5a2 2 0 00-2 2v5"/><line x1="7" y1="8" x2="15" y2="8"/><line x1="7" y1="12" x2="12" y2="12"/></svg>
+      <span>Quadro</span>
+    </button>
+  </div>
+  <button class="chat-fab main-more-btn" id="chatFab" onclick="toggleMainMoreMenu()" title="Conversas e Quadro">
+    <span class="more-star">✴︎</span>
+    <span class="more-dot" id="mainMoreDot"></span>
+  </button>
+</div>
+
+<!-- Quadro colaborativo (estilo Miro): notas, imagens e correntes visíveis pra todo mundo -->
+<div class="board-ov" id="boardPanel">
+  <div class="board-top">
+    <h2 class="board-title">Quadro</h2>
+    <div class="board-tools">
+      <button class="btn bg2 bsm" onclick="addBoardNote()">+ Nota</button>
+      <button class="btn bg2 bsm" onclick="$('boardImgFile').click()">+ Imagem</button>
+      <input type="file" id="boardImgFile" accept="image/*" style="display:none" onchange="handleBoardImage(this)">
+      <button class="btn bg2 bsm" id="boardConnectBtn" onclick="toggleBoardConnect()">🔗 Conectar</button>
+    </div>
+    <button class="btn bg2 bsm" onclick="closeBoard()">Fechar</button>
+  </div>
+  <div class="board-hint" id="boardHint" style="display:none">Clique em duas notas para ligá-las. Use o ⤳ no topo de uma nota para conectar direto. Esc sai do modo.</div>
+  <div class="board-outer" id="boardOuter">
+    <div class="board-inner" id="boardInner">
+      <svg class="board-svg" id="boardSvg" width="12000" height="9000"></svg>
+    </div>
+    <div class="board-zoom">
+      <button class="bz-btn" onclick="boardZoomBy(1/1.2)" title="Diminuir zoom">−</button>
+      <span class="bz-lbl" id="boardZoomLabel" onclick="boardZoomReset()" title="Clique para voltar a 100%">100%</span>
+      <button class="bz-btn" onclick="boardZoomBy(1.2)" title="Aumentar zoom">+</button>
+      <button class="bz-btn bz-fit" onclick="boardFitAll()" title="Enquadrar tudo">⤢</button>
+    </div>
+  </div>
+</div>
+
+<!-- Friends Hub — Conversas & Solicitações -->
+<div class="sp" id="friendsHubPanel" onclick="closeFriendsHub(event)">
+  <div class="sbox" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <h2 style="font-size:1rem;font-weight:600;margin:0">Amigos</h2>
+      <button class="btn bg2 bsm" onclick="closeFriendsHub()" style="padding:.3rem .8rem;font-size:1rem;line-height:1;flex-shrink:0">×</button>
+    </div>
+    <div class="fhub-tabs">
+      <button class="fhub-tab active" data-tab="conv" onclick="switchFhubTab('conv')">Conversas</button>
+      <button class="fhub-tab" data-tab="req" onclick="switchFhubTab('req')">Solicitações<span class="tab-badge" id="reqBadge">0</span></button>
+    </div>
+    <div id="fhubConvList" class="fhub-list"><div class="ge">Carregando...</div></div>
+    <div id="fhubReqList" class="fhub-list" style="display:none"><div class="ge">Carregando...</div></div>
+  </div>
+</div>
+
+<!-- ── AUTH ── -->
+<div class="scene auth-scene" id="authScene">
+  <div class="acard">
+    <div class="brand"><h1>there.fm</h1><p>entre para assistir junto</p></div>
+    <div id="loginForm" class="aform">
+      <div class="ppw"><div class="pp" id="loginPP"><span class="pp-ph">+</span><input type="file" id="lFile" accept="image/*" onchange="handlePhoto(this,'login')"></div><span class="pp-lbl">foto de perfil (opcional)</span></div>
+      <input class="inp" type="email" id="lEmail" placeholder="Email" autocomplete="email">
+      <input class="inp" type="password" id="lPass" placeholder="Senha" autocomplete="current-password">
+      <button class="btn bp" onclick="doLoginAuth()">Entrar</button>
+      <div class="asw">Sem conta? <a onclick="toSignup()">Criar uma</a></div>
+    </div>
+    <div id="signupForm" class="aform" style="display:none">
+      <div class="ppw"><div class="pp" id="signupPP"><span class="pp-ph">+</span><input type="file" id="sFile" accept="image/*" onchange="handlePhoto(this,'signup')"></div><span class="pp-lbl">foto de perfil</span></div>
+      <input class="inp" type="text" id="sName" placeholder="Nome" autocomplete="name">
+      <input class="inp" type="email" id="sEmail" placeholder="Email" autocomplete="email">
+      <input class="inp" type="password" id="sPass" placeholder="Senha (mín 6)" autocomplete="new-password">
+      <button class="btn bp" onclick="doSignupAuth()">Criar Conta</button>
+      <div class="asw">Já tem conta? <a onclick="toLogin()">Entrar</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LANDING ── -->
+<div class="scene landing-scene" id="landingScene">
+  <div class="lc">
+    <div class="llogo">there.fm</div>
+    <p class="ltag">salas sincronizadas em tempo real<br>para assistir junto</p>
+    <div class="linput">
+      <input type="text" id="roomInput" placeholder="Código da sala..." maxlength="24" onkeydown="if(event.key==='Enter')joinRoom()">
+      <button class="btn bp" onclick="joinRoom()">Entrar</button>
+    </div>
+    <div class="lactions"><button class="btn bp" onclick="createRoom()">✦ Criar Sala</button></div>
+    <div class="lfooter"><button onclick="openSettings()"><span class="lf-ico">𐂪</span> Perfil</button><button onclick="openMemberSearchModal()"><span class="lf-ico">⌕</span> Membros</button><button onclick="openPrefs()"><span class="lf-ico">⌥</span> Configurações</button></div>
+    
+  </div>
+</div>
+
+<!-- ── ROOM ── -->
+<div class="scene room-scene" id="roomScene">
+  <div class="rh">
+    <div class="rh-left">
+      <span class="rtitle">there.fm</span>
+      <span class="rcode" id="rcode" onclick="copyCode()">—</span>
+      <span class="conn"><span class="conn-dot" id="connDot"></span><span id="connLbl">conectando...</span></span>
+    </div>
+    <div class="ractions">
+      <button class="tbtn bg2" id="chatTbtn" onclick="openFriendsHub()" title="Amigos e conversas" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg><span class="fab-badge" id="roomFabBadge">0</span></button>
+      <button class="tbtn bg2" id="callTbtn" onclick="toggleCallPanel()" title="Chamada de voz" style="position:relative"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg><span class="fab-badge" id="callFabBadge">0</span></button>
+      <button class="tbtn bg2" id="boardTbtn" onclick="openBoard()" title="Quadro colaborativo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><path d="M15.5 3H5a2 2 0 00-2 2v14a2 2 0 002 2h9l7-7V5a2 2 0 00-2-2h-3.5z"/><path d="M21 14h-5a2 2 0 00-2 2v5"/><line x1="7" y1="8" x2="15" y2="8"/><line x1="7" y1="12" x2="12" y2="12"/></svg></button>
+      <button class="tbtn bg2" onclick="toggleParts()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><circle cx="9" cy="7" r="3"/><path d="M3 21v-2a4 4 0 014-4h4"/><circle cx="18" cy="11" r="3"/><path d="M21 21v-2a4 4 0 00-3-3.87"/></svg></button>
+      <button class="tbtn bg2" onclick="openSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="15" height="15"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+      <button class="btn bg2 bsm" onclick="leaveRoom()">Sair</button>
+    </div>
+  </div>
+  <div class="toolbar" id="toolbar">
+    <div class="tgrp">
+      <span class="tlbl">Adicionar</span>
+      <button class="tbtn" onclick="openUniversalVideoPanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><rect x="2" y="7" width="15" height="11" rx="2"/><polyline points="17 9 22 6 22 18 17 15"/></svg><span>Vídeo</span></button>
+      <button class="tbtn" id="ytPanelBtn" onclick="openYtPanel()"><svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13"><path d="M23.5 6.2a3 3 0 00-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 00.5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 002.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 002.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"/></svg><span>Youtube</span></button>
+      <button class="tbtn" id="musicPanelBtn" onclick="openMusicPanel()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg><span>Música</span></button>
+      <button class="tbtn" onclick="openGifPicker('canvas')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h4m0 0v-2m0 2v2M16 8v8"/></svg><span>GIF</span></button>
+      <button class="tbtn" onclick="openImageModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg><span>Imagem</span></button>
+    </div>
+    <div class="tdiv"></div>
+    <div class="tgrp">
+      <span class="tlbl">Desenho</span>
+      <button class="tbtn" id="drawBtn" onclick="toggleDraw()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><span>Desenhar</span></button>
+    </div>
+  </div>
+  <div class="rbody" id="rbody">
+    <div class="cw" id="cw">
+      <canvas id="bgCanvas"></canvas>
+      <canvas id="drawCanvas"></canvas>
+      <div id="items"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Draw floating toolbar -->
+<div id="drawBar">
+  <div class="dbs"><span class="dblbl">Cor</span><div id="drawColors" style="display:flex;gap:.35rem;align-items:center"></div><label style="cursor:pointer;display:flex;align-items:center" title="Personalizar cor"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ash)" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg><input type="color" id="customColor" value="#eae6de" style="width:0;height:0;opacity:0;position:absolute" oninput="setDrawColor(this.value)"></label></div>
+  <div class="dbdiv"></div>
+  <div class="dbs"><span class="dblbl">Pincel</span><input type="range" id="brushSize" min="1" max="60" value="8" oninput="updateBPreview()"><div id="bprev"><div id="bprevdot" style="width:8px;height:8px"></div></div></div>
+  <div class="dbdiv"></div>
+  <div class="dbs"><span class="dblbl">Opac.</span><input type="range" id="brushOpacity" min="10" max="100" value="100" oninput="updateBPreview()"></div>
+  <div class="dbdiv"></div>
+  <div class="dbs" style="gap:.38rem">
+    <button class="dbbtn" id="eraserBtn" onclick="toggleEraser()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 20H7L3 16l12-12 5 5z"/><path d="M14 6l4 4"/></svg> Borracha</button>
+    <button class="dbbtn" onclick="clearDraw()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg> Limpar</button>
+    <button class="dbbtn" onclick="undoDraw()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/></svg> Desfazer</button>
+  </div>
+</div>
+
+<!-- Msg bar -->
+<div class="msgbar" id="msgbar">
+  <input type="text" id="msgInput" placeholder="Mensagem..." maxlength="200" onkeydown="handleMsgKey(event)">
+  <div class="gifbtn" onclick="openGifPicker('chat')" title="Enviar GIF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="13" height="13"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h4m0 0v-2m0 2v2M16 8v8"/></svg></div>
+  <button class="btn bp bsm" onclick="sendMsg()" style="border-radius:100px;padding:.4rem .95rem">↑</button>
+</div>
+
+<div class="parts" id="parts"><div class="ph">Participantes</div><div id="partsList"></div></div>
+
+<!-- Volume universal de mídia (sincronizado com a sala) -->
+<div class="vol-bar" id="volBar" title="Volume de vídeos e músicas (vale para todos)">
+  <button class="vol-ico" id="volIcon" onclick="toggleMediaMute()" title="Silenciar mídia"></button>
+  <div class="vol-track" id="volTrack">
+    <div class="vol-fill" id="volFill"></div>
+  </div>
+  <span class="vol-pct" id="volPct">70</span>
+</div>
+
+<!-- Chamada de voz -->
+<div class="call-panel" id="callPanel">
+  <div class="call-panel-top">
+    <span class="ph" style="margin:0">Chamada de voz</span>
+    <button class="btn bg2 bsm" onclick="toggleCallPanel()" style="padding:.25rem .65rem;font-size:.9rem;line-height:1">×</button>
+  </div>
+  <div id="callParticipantsList" class="call-plist"></div>
+  <div class="call-actions" id="callActionsIdle">
+    <button class="btn bp bsm" onclick="joinCall()" style="width:100%">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right:.35rem;vertical-align:-2px"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      Entrar na chamada
+    </button>
+  </div>
+  <div class="call-actions" id="callActionsActive" style="display:none">
+    <button class="cbtn" id="callMuteBtn" onclick="toggleCallMute()" title="Silenciar microfone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+    <button class="cbtn" id="callDeafenBtn" onclick="toggleCallDeafen()" title="Ensurdecer (silenciar todos)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg></button>
+    <button class="cbtn" onclick="toggleCallSettings()" title="Ajustes do supressor de ruído"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
+    <button class="cbtn cbtn-danger" onclick="leaveCall()" title="Sair da chamada"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45c.86.32 1.76.56 2.68.68A2 2 0 0122 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.42 19.42 0 01-3.68-3.03"/><path d="M1 1l22 22"/><path d="M8.16 8.16A19.5 19.5 0 003.07 4.11 2 2 0 015.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.16 8.16z"/></svg></button>
+  </div>
+  <div class="call-settings" id="callSettingsBox">
+    <button class="btn bg2 bsm" id="gateToggleBtn" onclick="toggleNoiseGate()" style="width:100%;margin-bottom:.6rem;font-size:.7rem">Supressor ligado</button>
+    <label class="call-set-lbl">Sensibilidade do supressor de ruído</label>
+    <input type="range" id="noiseGateSlider" min="0" max="100" value="35" oninput="updateNoiseGateSensitivity(this.value)">
+    <div class="call-set-lbl" style="margin-top:.5rem">Seu microfone agora</div>
+    <div class="call-mic-meter"><div class="call-mic-meter-fill" id="callMicMeterFill"></div></div>
+  </div>
+</div>
+
+<!-- GIF modal -->
+<div class="modal" id="gifModal">
+  <div class="mbox">
+    <h2>Buscar GIF · Klipy</h2>
+    <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+      <input class="mi" type="text" id="gifSearch" placeholder="Ex: funny, dance, cat..." onkeydown="if(event.key==='Enter')searchGifs()">
+      <button class="btn bp bsm" onclick="searchGifs()" style="flex-shrink:0">Buscar</button>
+    </div>
+    <div id="gifResults" class="gg"></div>
+    <div class="mact"><button class="btn bg2" onclick="closeModal('gifModal')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Image modal -->
+<div class="modal" id="imageModal">
+  <div class="mbox">
+    <h2>Adicionar Imagem</h2><p>Selecione uma imagem da sua galeria.</p>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:.7rem">
+      <label class="plbl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>Escolher da Galeria<input type="file" id="imgFile" accept="image/*" style="display:none" onchange="previewImg()"></label>
+      <div id="imgPrev" style="display:none;text-align:center">
+        <img id="imgPrevEl" style="max-width:200px;max-height:160px;border-radius:8px;border:1px solid var(--ridge);display:block;margin:0 auto .65rem">
+        <div style="display:flex;gap:.45rem;justify-content:center"><button class="btn bp bsm" onclick="confirmImg()">Adicionar</button><button class="btn bg2 bsm" onclick="clearImg()">Cancelar</button></div>
+      </div>
+    </div>
+    <div class="mact" style="margin-top:.9rem"><button class="btn bg2" onclick="closeModal('imageModal')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Universal Video Panel -->
+<div class="sp" id="univVideoPanel" onclick="closeUniversalVideoPanel(event)">
+  <div class="sbox" onclick="event.stopPropagation()" style="max-width:520px;width:calc(100% - 2.5rem)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem">
+      <h2 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:.5rem;margin:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><rect x="2" y="7" width="15" height="11" rx="2"/><polyline points="17 9 22 6 22 18 17 15"/></svg>
+        Adicionar Vídeo
+      </h2>
+      <button class="btn bg2 bsm" onclick="closeUniversalVideoPanel()" style="padding:.3rem .8rem;font-size:1rem;line-height:1">×</button>
+    </div>
+
+    <!-- Tab switcher -->
+    <div style="display:flex;gap:.35rem;margin-bottom:.8rem">
+      <button class="tbtn active" id="uvTabLinkBtn" onclick="uvSwitchTab('link')" style="flex:1;justify-content:center">Colar link</button>
+      <button class="tbtn" id="uvTabBrowseBtn" onclick="uvSwitchTab('browse')" style="flex:1;justify-content:center">Descobrir</button>
+    </div>
+
+    <!-- LINK TAB -->
+    <div id="uvTabLink">
+      <p style="font-size:.78rem;color:var(--ash);margin-bottom:.8rem;line-height:1.6">Cole o link de um vídeo <b>ou da página onde ele está</b>. Se for uma página, o vídeo dentro dela é localizado automaticamente e vira player sincronizado.</p>
+      <div style="display:flex;gap:.4rem;margin-bottom:.7rem">
+        <input class="mi" type="url" id="univVideoUrl" placeholder="https://..." onkeydown="if(event.key==='Enter')addUniversalVideo()" style="flex:1;padding:.55rem .75rem;font-size:.85rem">
+        <button class="btn bp bsm" id="uvAddBtn" onclick="addUniversalVideo()" style="flex-shrink:0;padding:.55rem .9rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.4rem;margin-bottom:.5rem">
+        <div style="padding:.45rem;background:rgba(255,255,255,.04);border:1px solid var(--ridge);border-radius:var(--r);text-align:center;font-size:.65rem;color:var(--ash)">
+          <div style="font-size:1rem;margin-bottom:.2rem">▶</div>YouTube
+        </div>
+        <div style="padding:.45rem;background:rgba(255,255,255,.04);border:1px solid var(--ridge);border-radius:var(--r);text-align:center;font-size:.65rem;color:var(--ash)">
+          <div style="font-size:1rem;margin-bottom:.2rem">⬟</div>Vimeo
+        </div>
+        <div style="padding:.45rem;background:rgba(255,255,255,.04);border:1px solid var(--ridge);border-radius:var(--r);text-align:center;font-size:.65rem;color:var(--ash)">
+          <div style="font-size:1rem;margin-bottom:.2rem">◈</div>Twitch
+        </div>
+        <div style="padding:.45rem;background:rgba(255,255,255,.04);border:1px solid var(--ridge);border-radius:var(--r);text-align:center;font-size:.65rem;color:var(--ash)">
+          <div style="font-size:1rem;margin-bottom:.2rem">◽</div>.mp4/.m3u8
+        </div>
+      </div>
+      <p style="font-size:.7rem;color:var(--shadow);line-height:1.5">Outros sites são incorporados via iframe. Alguns podem bloquear incorporação — use a URL embed direta quando disponível.</p>
+    </div>
+
+    <!-- DESCOBRIR TAB -->
+    <div id="uvTabBrowse" style="display:none">
+      <div class="ds-searchrow">
+        <input class="mi" type="text" id="dsSearchInput" placeholder="Buscar vídeos..." onkeydown="if(event.key==='Enter')dsSearchNow()">
+        <button class="btn bp bsm" onclick="dsSearchNow()" style="flex-shrink:0;padding:.5rem .8rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+      <div class="ds-chips" id="dsChips"></div>
+      <div class="ds-stage">
+        <div class="ds-results" id="dsResults"></div>
+      </div>
+      <div class="ds-pager">
+        <button class="ds-pbtn" id="dsPrev" onclick="dsGoPage(-1)" title="Página anterior">‹</button>
+        <span class="ds-plbl" id="dsPageLbl">Página 1</span>
+        <button class="ds-pbtn" id="dsNext" onclick="dsGoPage(1)" title="Próxima página">›</button>
+      </div>
+      <p class="ds-tip">Deslize para os lados, use as setas ‹ › ou as teclas ← → para trocar de página. Toque num vídeo para tocá-lo na sala sincronizado.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Settings -->
+<!-- Configurações gerais: tema, idioma e conta -->
+<div class="sp" id="prefsPanel" onclick="if(event.target===this)closePrefs()">
+  <div class="sbox prefs-box" onclick="event.stopPropagation()">
+    <div class="prefs-head">
+      <h2 data-i18n="prefs.title">Configurações</h2>
+      <button class="btn bg2 bsm" onclick="closePrefs()" style="padding:.3rem .7rem;font-size:1rem;line-height:1">×</button>
+    </div>
+
+    <div class="ssec">
+      <h3 data-i18n="prefs.theme">Tema</h3>
+      <div class="theme-seg" id="themeGrid">
+        <span class="theme-glide" id="themeGlide"></span>
+        <button class="theme-opt" data-theme="dark" onclick="setTheme('dark')">
+          <span class="ti">
+            <svg class="ti-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="19" height="19"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+            <i class="ti-star s1"></i><i class="ti-star s2"></i><i class="ti-star s3"></i>
+          </span>
+          <span class="theme-name" data-i18n="theme.dark">Escuro</span>
+        </button>
+        <button class="theme-opt" data-theme="light" onclick="setTheme('light')">
+          <span class="ti">
+            <svg class="ti-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="19" height="19"><circle cx="12" cy="12" r="4.4"/><g class="ti-rays"><line x1="12" y1="1.5" x2="12" y2="3.6"/><line x1="12" y1="20.4" x2="12" y2="22.5"/><line x1="4.2" y1="4.2" x2="5.7" y2="5.7"/><line x1="18.3" y1="18.3" x2="19.8" y2="19.8"/><line x1="1.5" y1="12" x2="3.6" y2="12"/><line x1="20.4" y1="12" x2="22.5" y2="12"/><line x1="4.2" y1="19.8" x2="5.7" y2="18.3"/><line x1="18.3" y1="5.7" x2="19.8" y2="4.2"/></g></svg>
+            <i class="ti-horizon"></i>
+          </span>
+          <span class="theme-name" data-i18n="theme.light">Claro</span>
+        </button>
+        <button class="theme-opt" data-theme="eclipse" onclick="setTheme('eclipse')">
+          <span class="ti">
+            <svg class="ti-ecl" viewBox="0 0 24 24" width="19" height="19">
+              <defs><mask id="eclMask"><rect width="24" height="24" fill="#fff"/><circle class="ecl-shadow" cx="8.6" cy="12" r="8"/></mask></defs>
+              <circle cx="12" cy="12" r="8" fill="currentColor" mask="url(#eclMask)"/>
+              <circle class="ecl-corona" cx="12" cy="12" r="9.4" fill="none" stroke="currentColor" stroke-width="1" opacity=".45"/>
+            </svg>
+          </span>
+          <span class="theme-name" data-i18n="theme.eclipse">Eclipse</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="ssec">
+      <h3 data-i18n="prefs.lang">Idioma</h3>
+      <div class="lang-grid" id="langGrid">
+        <button class="lang-opt" data-lang="pt" onclick="setLang('pt')"><b>PT</b><span>Português</span></button>
+        <button class="lang-opt" data-lang="en" onclick="setLang('en')"><b>EN</b><span>English</span></button>
+      </div>
+    </div>
+
+    <div class="ssec">
+      <h3 data-i18n="prefs.account">Conta</h3>
+      <button class="btn bg2" onclick="doLogoutAuth()" style="width:100%;color:var(--crimson);border-color:rgba(196,92,92,.35)" data-i18n="prefs.logout">Sair da conta</button>
+    </div>
+
+    <div class="credit"><span data-i18n="prefs.madeby">feito por</span> <b>V</b></div>
+  </div>
+</div>
+
+<div class="sp" id="settingsPanel">
+  <div class="sbox">
+    <h2><span class="lf-ico" style="font-size:1.1em">𐂪</span> Perfil</h2>
+    <div class="ssec"><h3>Perfil</h3>
+      <div class="spr">
+        <div style="display:flex;flex-direction:column;gap:.5rem;width:140px">
+          <div class="avatar-frame-wrap" id="avatarFrameWrap" style="position:relative;width:58px;height:58px;flex-shrink:0">
+            <div class="sphoto" id="sphoto"><span class="sinit" id="sinit">A</span><input type="file" id="spFile" accept="image/*" onchange="handleSPhoto(this)"></div>
+          </div>
+          <div class="sbanner" id="sbanner"><span class="sb-ph">Banner</span><input type="file" id="spBannerFile" accept="image/*" onchange="handleSBanner(this)"></div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:.55rem">
+          <div class="srow"><span class="slbl">Nome</span><input class="si" type="text" id="sNm" placeholder="Seu nome"></div>
+          <div class="srow"><span class="slbl">Email</span><input class="si" type="email" id="sEm" placeholder="email@exemplo.com"></div>
+          <div class="srow"><span class="slbl">Usuário (único)</span><input class="si" type="text" id="sUname" placeholder="@usuario"></div>
+          <div class="srow"><span class="slbl">Biografia</span><textarea class="si" id="sBio" placeholder="Fale sobre você" style="height:60px"></textarea></div>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <div style="flex:1">
+              <div class="slbl">Moldura: escala</div>
+              <input type="range" id="frameScale" min="0.5" max="2" step="0.01" value="1" oninput="updateFramePreview()">
+            </div>
+            <div style="width:110px">
+              <div class="slbl">X</div>
+              <input type="range" id="frameX" min="-100" max="100" step="1" value="0" oninput="updateFramePreview()">
+              <div class="slbl">Y</div>
+              <input type="range" id="frameY" min="-100" max="100" step="1" value="0" oninput="updateFramePreview()">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ssec"><h3>Aparência do perfil</h3>
+      <div class="pv-wrap">
+        <!-- Pré-visualização ao vivo: reflete nome, foto, banner, moldura e cor -->
+        <div class="pv-card" id="pvCard">
+          <div class="pv-banner" id="pvBanner"></div>
+          <div class="pv-body">
+            <div class="pv-av" id="pvAv"></div>
+            <div class="pv-txt">
+              <div class="pv-name" id="pvName">Seu nome</div>
+              <div class="pv-uname" id="pvUname">@usuario</div>
+              <div class="pv-bio" id="pvBio"></div>
+            </div>
+          </div>
+          <div class="pv-glow" id="pvGlow"></div>
+        </div>
+        <div class="pv-ctrls">
+          <div class="slbl">Cor do perfil</div>
+          <div class="pv-swatches" id="pvSwatches"></div>
+          <button class="pv-custom" id="pvCustomBtn" onclick="toggleColorPicker()">
+            <span class="pv-custom-dot" id="pvCustomDot"></span>
+            <span>Cor personalizada</span>
+            <span class="pv-custom-hex" id="pvCustomHex">#c45c5c</span>
+          </button>
+
+          <!-- Seletor completo: área de saturação/brilho + trilha de matiz + hex -->
+          <div class="cpick" id="cpick">
+            <div class="cpick-sv" id="cpickSV"><span class="cpick-cursor" id="cpickCursor"></span></div>
+            <div class="cpick-hue" id="cpickHue"><span class="cpick-hcursor" id="cpickHueCursor"></span></div>
+            <div class="cpick-foot">
+              <span class="cpick-prev" id="cpickPrev"></span>
+              <input class="si cpick-hex" id="profColorHex" maxlength="7" spellcheck="false"
+                     oninput="onHexTyped(this.value)" onkeydown="if(event.key==='Enter')onHexTyped(this.value,true)">
+            </div>
+          </div>
+
+          <div class="slbl" style="margin-top:.7rem">Cor do nome</div>
+          <div class="name-seg" id="nameSeg">
+            <button class="tint-opt" data-nc="auto" onclick="setNameColorMode('auto')">Automática</button>
+            <button class="tint-opt" data-nc="custom" onclick="setNameColorMode('custom')">Própria</button>
+          </div>
+          <div class="pv-swatches nc-only" id="pvNameSwatches" style="margin-top:.4rem"></div>
+          <button class="pv-custom nc-only" id="pvNameCustomBtn" onclick="toggleNameColorPicker()">
+            <span class="pv-custom-dot" id="pvNameDot"></span>
+            <span>Cor do nome</span>
+            <span class="pv-custom-hex" id="pvNameHex">#ffffff</span>
+          </button>
+          <div class="cpick nc-only" id="ncpick">
+            <div class="cpick-sv" id="ncpickSV"><span class="cpick-cursor" id="ncpickCursor"></span></div>
+            <div class="cpick-hue" id="ncpickHue"><span class="cpick-hcursor" id="ncpickHueCursor"></span></div>
+            <div class="cpick-foot">
+              <span class="cpick-prev" id="ncpickPrev"></span>
+              <input class="si cpick-hex" id="nameColorHex" maxlength="7" spellcheck="false"
+                     oninput="onNameHexTyped(this.value)" onkeydown="if(event.key==='Enter')onNameHexTyped(this.value,true)">
+            </div>
+          </div>
+          <div class="nc-warn" id="ncWarn"></div>
+
+          <div class="slbl" style="margin-top:.7rem">Preenchimento do card</div>
+          <div class="tint-seg" id="tintSeg">
+            <button class="tint-opt" data-tint="none"  onclick="setCardTint('none')">Nenhum</button>
+            <button class="tint-opt" data-tint="soft"  onclick="setCardTint('soft')">Suave</button>
+            <button class="tint-opt" data-tint="solid" onclick="setCardTint('solid')">Sólido</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="ssec"><h3>Molduras</h3>
+      <div id="framePresets" class="gg"></div>
+      <div style="margin-top:.5rem;font-size:.7rem;color:var(--dust)">Novas molduras são adicionadas pela administração — mande sua sugestão de imagem.</div>
+    </div>
+    <div class="mact">
+      <button class="btn bp" onclick="saveSettings()">Salvar</button>
+      <button class="btn bg2" onclick="openMyPublicProfile()">Abrir meu perfil</button>
+      <button class="btn bg2" onclick="closeSettings()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Perfil Público -->
+<div class="modal" id="profileModal">
+  <div class="mbox" style="max-width:680px;width:calc(100% - 2rem)">
+    <div style="display:flex;gap:1rem">
+      <div style="flex:1">
+        <div id="pubBanner" style="width:100%;aspect-ratio:3/1;background:linear-gradient(90deg,#111,#222);border-radius:8px;overflow:hidden;background-size:cover;background-position:center"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:.7rem 1rem;margin-top:-40px;align-items:flex-end">
+          <div style="width:84px;height:84px;border-radius:50%;overflow:visible;border:4px solid rgba(0,0,0,.6);background:#222;flex-shrink:0;position:relative" id="pubAvatar"></div>
+          <div style="flex:1;min-width:120px;color:var(--bone)">
+            <div id="pubName" style="font-weight:700;font-size:1.05rem;overflow-wrap:break-word"></div>
+            <div id="pubUname" style="color:var(--ash);font-size:.9rem;margin-top:.25rem;overflow-wrap:break-word"></div>
+          </div>
+          <div id="pubActions" style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.4rem"></div>
+        </div>
+        <div style="margin-top:.8rem;color:var(--dust)" id="pubBio"></div>
+        <div id="pubTagAdmin"></div>
+        <div style="margin-top:.6rem"><h3 style="margin:0;font-size:.86rem">Amigos</h3><div id="pubFriends" style="display:flex;gap:.4rem;margin-top:.5rem"></div></div>
+      </div>
+    </div>
+    <div class="mact" style="margin-top:.9rem"><button class="btn bg2" onclick="closeModal('profileModal')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Buscar Membros -->
+<div class="modal" id="memberSearchModal">
+  <div class="mbox">
+    <h2>Buscar membros</h2>
+    <div style="display:flex;gap:.5rem;margin-bottom:.6rem">
+      <input class="mi" id="memberSearchInput" placeholder="Nome ou @usuario" onkeydown="if(event.key==='Enter')searchMembers()">
+      <button class="btn bp bsm" onclick="searchMembers()">Buscar</button>
+    </div>
+    <div id="memberSearchResults" class="gg"></div>
+    <div class="mact"><button class="btn bg2" onclick="closeModal('memberSearchModal')">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Mensagem Privada -->
+<div class="modal" id="dmModal">
+  <div class="mbox" style="max-width:420px;width:calc(100% - 2rem);display:flex;flex-direction:column;max-height:80vh">
+    <h2 id="dmTitle" style="margin:0 0 .6rem">Conversa</h2>
+    <div id="dmMessages" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;min-height:220px;max-height:50vh;padding:.3rem 0"></div>
+    <div style="display:flex;gap:.5rem;margin-top:.6rem">
+      <input class="mi" id="dmInput" placeholder="Escreva uma mensagem..." onkeydown="if(event.key==='Enter')sendDM()">
+      <button class="btn bp bsm" onclick="sendDM()">Enviar</button>
+    </div>
+    <div class="mact"><button class="btn bg2" onclick="closeDM()">Fechar</button></div>
+  </div>
+</div>
+
+<!-- Ajustar Foto (crop/zoom/posição — evita cortar partes importantes da imagem) -->
+<div class="modal" id="cropModal">
+  <div class="mbox" style="max-width:340px;text-align:center">
+    <h2 style="margin-bottom:.3rem" id="cropTitle">Ajustar foto</h2>
+    <p style="font-size:.76rem;color:var(--ash);margin-bottom:.9rem;line-height:1.5" id="cropDesc">Arraste a imagem para posicionar e use o zoom para enquadrar melhor.</p>
+    <div id="cropStage">
+      <img id="cropImg" draggable="false" alt="">
+    </div>
+    <div style="margin-top:1rem;text-align:left">
+      <div class="slbl" style="margin-bottom:.35rem">Zoom</div>
+      <input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1" oninput="cropUpdateZoom()" style="width:100%">
+    </div>
+    <div class="mact" style="margin-top:1.1rem">
+      <button class="btn bp" onclick="cropConfirm()">Usar foto</button>
+      <button class="btn bg2" onclick="cropCancel()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<!-- YouTube Panel -->
+<div class="sp" id="ytPanel" onclick="closeYtPanel(event)">
+  <div class="sbox" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <h2 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:.5rem;margin:0">
+        <svg viewBox="0 0 24 24" fill="#ff4444" width="16" height="16"><path d="M23.5 6.2a3 3 0 00-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 00.5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 002.1 2.1C4.5 20.5 12 20.5 12 20.5s7.5 0 9.4-.6a3 3 0 002.1-2.1c.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"/></svg>
+        YouTube
+      </h2>
+      <button class="btn bg2 bsm" onclick="$('ytPanel').classList.remove('on')" style="padding:.3rem .8rem;font-size:1rem;line-height:1;flex-shrink:0">×</button>
+    </div>
+
+    <!-- Login Google removido: busca via YT_API_KEY, sem necessidade de login -->
+    <div id="ytUserInfo" style="display:none"></div>
+    <button id="ytLoginBtn" class="btn" onclick="ytGoogleLogin()" style="display:none">Entrar com Google</button>
+    <div id="ytLogoutBtn" style="display:none;align-items:center;gap:.5rem;flex-shrink:0">
+      <button class="btn bg2 bsm" onclick="ytGoogleLogout()" style="font-size:.75rem">Sair da conta</button>
+    </div>
+
+    <!-- Busca -->
+    <div id="ytSearchSec" style="display:flex;flex-direction:column;gap:.5rem;flex:1;min-height:0">
+      <div style="display:flex;gap:.4rem;flex-shrink:0">
+        <input class="mi" id="ytSearchInput" placeholder="Buscar no YouTube..." style="flex:1;padding:.5rem .75rem;font-size:.83rem" onkeydown="if(event.key==='Enter')ytSearch()">
+        <button class="btn bp bsm" onclick="ytSearch()" style="flex-shrink:0;padding:.5rem .8rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+      <div id="ytResults"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Music Panel -->
+<div class="sp" id="musicPanel" onclick="closeMusicPanel(event)">
+  <div class="sbox" onclick="event.stopPropagation()">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+      <h2 style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:.5rem;margin:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" width="16" height="16"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+        <span style="background:linear-gradient(90deg,var(--bone),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent">YouTube Music</span>
+      </h2>
+      <button class="btn bg2 bsm" onclick="$('musicPanel').classList.remove('on')" style="padding:.3rem .8rem;font-size:1rem;line-height:1;flex-shrink:0">×</button>
+    </div>
+
+    <!-- Sugestões parecidas com a última música adicionada — aparecem acima do player -->
+    <div id="musicSimilarSec">
+      <div class="msec-lbl">✦ Parecidas com essa</div>
+      <div id="musicSimilarResults"></div>
+    </div>
+
+    <!-- Now playing preview (o "player") -->
+    <div id="musicNowPlayingBar" style="display:none;background:rgba(74,222,128,.07);backdrop-filter:blur(14px);border:1px solid rgba(74,222,128,.22);border-radius:var(--rm);padding:.6rem .75rem;flex-shrink:0">
+      <div style="font-size:.65rem;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem">▶ Adicionado agora</div>
+      <div id="musicNowTitle" style="font-size:.82rem;font-weight:600;color:var(--bone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+      <div id="musicNowArtist" style="font-size:.7rem;color:var(--ash)"></div>
+    </div>
+
+    <!-- Auth removida: busca via YT_API_KEY, sem necessidade de login -->
+    <div id="musicUserInfo" style="display:none"></div>
+    <button id="musicLoginBtn" class="btn" onclick="ytGoogleLogin()" style="display:none">Entrar com Google</button>
+    <div id="musicLogoutBtn" style="display:none;align-items:center;gap:.5rem;flex-shrink:0">
+      <button class="btn bg2 bsm" onclick="ytGoogleLogout()" style="font-size:.75rem">Sair da conta</button>
+    </div>
+
+    <!-- Search -->
+    <div id="musicSearchSec" style="display:flex;flex-direction:column;gap:.5rem;flex:1;min-height:0">
+      <div style="display:flex;gap:.4rem;flex-shrink:0">
+        <input class="mi" id="musicSearchInput" placeholder="Digite um clima, artista, trecho da letra..." style="flex:1;padding:.5rem .75rem;font-size:.83rem" oninput="musicOnType()" onkeydown="if(event.key==='Enter')musicSearch()">
+        <button class="btn bsm" style="flex-shrink:0;padding:.5rem .8rem;background:var(--green);color:#000;border:none;border-radius:var(--rm);font-weight:600" onclick="musicSearch()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="13" height="13"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+      <!-- Chips de clima/gênero — pra buscar sem precisar saber o nome da música -->
+      <div id="musicChips">
+        <button class="mchip" onclick="musicQuick('lo-fi beats to relax')">lo-fi</button>
+        <button class="mchip" onclick="musicQuick('phonk')">phonk</button>
+        <button class="mchip" onclick="musicQuick('indie bedroom pop')">indie</button>
+        <button class="mchip" onclick="musicQuick('wave to earth')">wave to earth</button>
+        <button class="mchip" onclick="musicQuick('dream pop shoegaze')">dream pop</button>
+        <button class="mchip" onclick="musicQuick('soft indie acoustic')">acústico</button>
+        <button class="mchip" onclick="musicQuick('chillwave synthwave')">chillwave</button>
+        <button class="mchip" onclick="musicQuick('jazz lo-fi cafe')">jazz suave</button>
+        <button class="mchip" onclick="musicQuick('ambient calm study')">ambient</button>
+        <button class="mchip" onclick="musicQuick('city pop japanese')">city pop</button>
+        <button class="mchip" onclick="musicQuick('slowed reverb')">slowed</button>
+        <button class="mchip" onclick="musicQuick('korean indie r&b')">k-indie</button>
+      </div>
+      <div id="musicResults"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Janelinha com as demais tags do perfil -->
+<div class="ptags-pop" id="ptagsPop" onclick="if(event.target===this)closeTagsPop()">
+  <div class="ptags-pop-box" onclick="event.stopPropagation()">
+    <div class="ptags-pop-head"><span id="ptagsPopTitle">Tags</span><button class="ptags-pop-x" onclick="closeTagsPop()">×</button></div>
+    <div class="ptags-pop-list" id="ptagsPopList"></div>
+  </div>
+</div>
+</body>
+</html>
