@@ -1,0 +1,739 @@
+const BOARD_W = 12000, BOARD_H = 9000;   // tela útil (bem maior que antes)
+const BOARD_MIN_SCALE = 0.15, BOARD_MAX_SCALE = 3;
+let boardView = { x:0, y:0, scale:1 };
+let boardPan = null;             // {startX,startY,ox,oy} enquanto arrasta o fundo
+let boardSpaceDown = false;      // barra de espaço segurada = modo pan
+let boardPinch = null;           // {dist,scale,cx,cy} durante pinça de 2 dedos
+let boardSelectedEdge = null;    // id do conector selecionado (mostra ações)
+let boardEdgeDrag = null;        // {id} enquanto entorta um conector
+let boardResize = null;          // {id,startX,startY,startW,startH}
+let _edgeEls = {};               // id -> {path,hit,handle,arrow} reaproveitados
+let _edgeRAF = null;             // fila de redesenho (coalesce vários pedidos num frame só)
+let _nodeStamp = {};             // id -> updated_at já aplicado (evita re-render à toa)
+
+let _zoomLblRAF=null, _movingTO=null;
+function markBoardMoving(){
+  const inner=$('boardInner'); if(!inner) return;
+  inner.classList.add('moving');
+  clearTimeout(_movingTO);
+  _movingTO=setTimeout(()=>inner.classList.remove('moving'),260);
+}
+function applyBoardTransform(){
+  markBoardMoving();
+  const inner=$('boardInner');
+  if(inner) inner.style.transform=`translate3d(${boardView.x}px,${boardView.y}px,0) scale(${boardView.scale})`;
+  // a grade é desenhada pelo .board-outer (tamanho da tela) e segue o transform via CSS vars
+  const outer=$('boardOuter');
+  if(outer){
+    outer.style.setProperty('--bs',boardView.scale);
+    outer.style.setProperty('--bx',boardView.x+'px');
+    outer.style.setProperty('--by',boardView.y+'px');
+  }
+  // atualizar texto força layout; uma vez por frame basta
+  if(!_zoomLblRAF) _zoomLblRAF=requestAnimationFrame(()=>{
+    _zoomLblRAF=null;
+    const zl=$('boardZoomLabel'); if(zl) zl.textContent=Math.round(boardView.scale*100)+'%';
+  });
+}
+/* converte coordenada de tela → coordenada do quadro */
+function boardPoint(clientX,clientY){
+  const r=$('boardOuter').getBoundingClientRect();
+  return { x:(clientX-r.left-boardView.x)/boardView.scale, y:(clientY-r.top-boardView.y)/boardView.scale };
+}
+function boardViewportCenter(){
+  const o=$('boardOuter'); if(!o) return {x:0,y:0};
+  const r=o.getBoundingClientRect();
+  return boardPoint(r.left+r.width/2, r.top+r.height/2);
+}
+/* zoom mantendo fixo o ponto sob o cursor/dedos */
+function boardZoomAt(clientX,clientY,factor){
+  const old=boardView.scale;
+  const next=Math.min(BOARD_MAX_SCALE,Math.max(BOARD_MIN_SCALE,old*factor));
+  if(next===old) return;
+  const r=$('boardOuter').getBoundingClientRect();
+  const px=clientX-r.left, py=clientY-r.top;
+  boardView.x = px-(px-boardView.x)*(next/old);
+  boardView.y = py-(py-boardView.y)*(next/old);
+  boardView.scale=next;
+  applyBoardTransform();
+}
+function boardZoomBy(f){
+  const r=$('boardOuter').getBoundingClientRect();
+  boardZoomAt(r.left+r.width/2, r.top+r.height/2, f);
+}
+function boardZoomReset(){ boardView={x:0,y:0,scale:1}; applyBoardTransform(); }
+/* enquadra todo o conteúdo na tela */
+function boardFitAll(){
+  const ns=Object.values(boardNodes); if(!ns.length){ boardZoomReset(); return; }
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  ns.forEach(n=>{ const w=n.w||180,h=n.h||120;
+    minX=Math.min(minX,n.x||0); minY=Math.min(minY,n.y||0);
+    maxX=Math.max(maxX,(n.x||0)+w); maxY=Math.max(maxY,(n.y||0)+h); });
+  const o=$('boardOuter').getBoundingClientRect();
+  const pad=80;
+  const s=Math.min(BOARD_MAX_SCALE,Math.max(BOARD_MIN_SCALE,
+    Math.min((o.width-pad*2)/(maxX-minX||1),(o.height-pad*2)/(maxY-minY||1))));
+  boardView.scale=s;
+  boardView.x=(o.width-(maxX-minX)*s)/2-minX*s;
+  boardView.y=(o.height-(maxY-minY)*s)/2-minY*s;
+  applyBoardTransform();
+}
+
+/* ── ciclo de vida ── */
+async function openBoard(){
+  if(!U.id){ toast('Faça login para usar o quadro','err'); return; }
+  $('boardPanel').classList.add('on');
+  initBoardViewportEvents();
+  applyBoardTransform();
+  await loadBoardFull();
+  startBoardPolling();
+}
+function closeBoard(){
+  $('boardPanel').classList.remove('on');
+  stopBoardPolling();
+  boardConnectMode=false; boardConnectFrom=null; boardSelectedEdge=null;
+  $('boardConnectBtn').classList.remove('on'); $('boardHint').style.display='none';
+  document.querySelectorAll('.board-node.connect-sel').forEach(e=>e.classList.remove('connect-sel'));
+}
+let _boardLoading=false;
+function startBoardPolling(){
+  stopBoardPolling();
+  boardPollTimer=setInterval(()=>{
+    if(document.hidden)return;      // aba em segundo plano: não gasta rede/CPU
+    if(_boardLoading)return;        // já tem uma carga em andamento — não empilha requisições
+    if(boardDrag||boardResize||boardEdgeDrag)return; // não recarrega no meio de uma interação
+    loadBoardFull();
+  },6000);
+}
+function stopBoardPolling(){ if(boardPollTimer){ clearInterval(boardPollTimer); boardPollTimer=null; } }
+
+let _boardEventsReady=false;
+function initBoardViewportEvents(){
+  if(_boardEventsReady) return; _boardEventsReady=true;
+  const outer=$('boardOuter');
+
+  // zoom pela roda / trackpad (ctrl+scroll = pinça no trackpad)
+  let _wheelRAF=null, _wAcc={x:0,y:0,z:0,cx:0,cy:0};
+  outer.addEventListener('wheel',e=>{
+    e.preventDefault();
+    if(e.ctrlKey||e.metaKey){ _wAcc.z+=e.deltaY; _wAcc.cx=e.clientX; _wAcc.cy=e.clientY; }
+    else if(e.shiftKey){ _wAcc.x-=e.deltaY; }
+    else { _wAcc.x-=e.deltaX; _wAcc.y-=e.deltaY; }
+    if(_wheelRAF) return;
+    _wheelRAF=requestAnimationFrame(()=>{
+      _wheelRAF=null;
+      if(_wAcc.z){ boardZoomAt(_wAcc.cx,_wAcc.cy,Math.pow(1.0016,-_wAcc.z)); _wAcc.z=0; }
+      if(_wAcc.x||_wAcc.y){ boardView.x+=_wAcc.x; boardView.y+=_wAcc.y; _wAcc.x=_wAcc.y=0; applyBoardTransform(); }
+    });
+  },{passive:false});
+
+  // pan arrastando o fundo (ou com botão do meio / espaço em qualquer lugar)
+  outer.addEventListener('pointerdown',e=>{
+    const onEmpty = e.target===outer || e.target===$('boardInner') || e.target===$('boardSvg');
+    if(e.button===1 || boardSpaceDown || onEmpty){
+      if(!onEmpty && e.button!==1 && !boardSpaceDown) return;
+      boardPan={ startX:e.clientX, startY:e.clientY, ox:boardView.x, oy:boardView.y };
+      outer.classList.add('panning');
+      try{ outer.setPointerCapture(e.pointerId); }catch(err){}
+      if(onEmpty){ boardSelectedEdge=null; scheduleEdgeRedraw(); }
+    }
+  });
+  // pointermove pode disparar mais rápido que a tela atualiza; limitamos a 1 por frame
+  let _panRAF=null;
+  outer.addEventListener('pointermove',e=>{
+    if(!boardPan) return;
+    boardPan.lx=e.clientX; boardPan.ly=e.clientY;
+    if(_panRAF) return;
+    _panRAF=requestAnimationFrame(()=>{
+      _panRAF=null; if(!boardPan) return;
+      boardView.x=boardPan.ox+(boardPan.lx-boardPan.startX);
+      boardView.y=boardPan.oy+(boardPan.ly-boardPan.startY);
+      applyBoardTransform();
+    });
+  });
+  const endPan=()=>{ boardPan=null; outer.classList.remove('panning'); };
+  outer.addEventListener('pointerup',endPan);
+  outer.addEventListener('pointercancel',endPan);
+
+  // pinça de dois dedos no celular
+  outer.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      const [a,b]=e.touches;
+      boardPinch={ dist:Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY) };
+      endPan();
+    }
+  },{passive:true});
+  outer.addEventListener('touchmove',e=>{
+    if(e.touches.length===2&&boardPinch){
+      e.preventDefault();
+      const [a,b]=e.touches;
+      const d=Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
+      boardZoomAt((a.clientX+b.clientX)/2,(a.clientY+b.clientY)/2,d/boardPinch.dist);
+      boardPinch.dist=d;
+    }
+  },{passive:false});
+  outer.addEventListener('touchend',()=>{ if(boardPinch) boardPinch=null; },{passive:true});
+
+  // atalhos: espaço = pan, Delete = apaga conector selecionado, +/- zoom, 0 reset
+  document.addEventListener('keydown',e=>{
+    if(!$('boardPanel').classList.contains('on')) return;
+    const typing=document.activeElement&&document.activeElement.isContentEditable;
+    if(e.code==='Space'&&!typing){ boardSpaceDown=true; outer.classList.add('pan-ready'); e.preventDefault(); }
+    if((e.key==='Delete'||e.key==='Backspace')&&boardSelectedEdge&&!typing){ e.preventDefault(); deleteBoardEdge(boardSelectedEdge); }
+    if(e.key==='Escape'){ boardSelectedEdge=null; scheduleEdgeRedraw(); if(boardConnectMode) toggleBoardConnect(); }
+    if(!typing&&(e.key==='+'||e.key==='=')) boardZoomBy(1.15);
+    if(!typing&&e.key==='-') boardZoomBy(1/1.15);
+    if(!typing&&e.key==='0') boardZoomReset();
+  });
+  document.addEventListener('keyup',e=>{
+    if(e.code==='Space'){ boardSpaceDown=false; outer.classList.remove('pan-ready'); }
+  });
+}
+
+/* ── carga / sincronização ── */
+async function loadBoardFull(){
+  if(_boardLoading)return;
+  _boardLoading=true;
+  try{
+  const supa=getSupa();
+  const [nodesRes,edgesRes]=await Promise.all([
+    supa.from('board_nodes').select('*').order('created_at',{ascending:true}),
+    supa.from('board_edges').select('*')
+  ]);
+  if(nodesRes.error){ console.error('loadBoardFull nodes error',nodesRes.error); toast('Erro ao carregar o quadro: '+nodesRes.error.message,'err'); return; }
+  if(edgesRes.error){ console.error('loadBoardFull edges error',edgesRes.error); }
+  const nodes=nodesRes.data||[], edges=edgesRes.data||[];
+  const freshNodeIds=new Set(nodes.map(n=>n.id));
+  Object.keys(boardNodes).forEach(id=>{
+    if(!freshNodeIds.has(id) && !(boardDrag&&boardDrag.id===id)){
+      const el=document.getElementById('bn-'+id); if(el) el.remove();
+      delete boardNodes[id]; delete _nodeStamp[id];
+    }
+  });
+  nodes.forEach(n=>{
+    if(boardDrag&&boardDrag.id===n.id) return;      // não atropela o que estou arrastando
+    if(boardResize&&boardResize.id===n.id) return;  // nem o que estou redimensionando
+    const el=document.getElementById('bn-'+n.id);
+    const bodyFocused=el&&document.activeElement&&el.contains(document.activeElement)&&document.activeElement.isContentEditable;
+    if(bodyFocused) return;                          // nem o que estou escrevendo
+    // só re-renderiza se realmente mudou desde a última vez (evita trabalho de DOM a cada 6s)
+    const stamp=n.updated_at||n.created_at||'';
+    if(_nodeStamp[n.id]===stamp && boardNodes[n.id]) return;
+    _nodeStamp[n.id]=stamp;
+    boardNodes[n.id]=n; renderBoardNode(n);
+  });
+  const freshEdgeIds=new Set(edges.map(e=>e.id));
+  Object.keys(boardEdges).forEach(id=>{
+    if(!freshEdgeIds.has(id)){ delete boardEdges[id]; removeEdgeEls(id); }
+  });
+  edges.forEach(e=>{
+    const prev=boardEdges[e.id];
+    // BUG CORRIGIDO (conector voltava a ficar reto): se as colunas bend_x/bend_y
+    // ainda não existem no banco, a linha que volta do servidor não traz a
+    // curvatura — e sobrescrever cegamente zerava o que você acabou de entortar.
+    // Só aceitamos a curvatura do servidor quando ela realmente veio.
+    if(prev && e.bend_x==null && e.bend_y==null){ e.bend_x=prev.bend_x||0; e.bend_y=prev.bend_y||0; }
+    // curvatura que eu fiz e ainda não foi confirmada pelo servidor tem prioridade
+    const pend=_bendPending[e.id];
+    if(pend){
+      if(e.bend_x===pend.x && e.bend_y===pend.y) delete _bendPending[e.id]; // servidor alcançou
+      else { e.bend_x=pend.x; e.bend_y=pend.y; }
+    }
+    // e nunca atropela o conector que está sendo entortado neste instante
+    if(boardEdgeDrag && boardEdgeDrag.id===e.id && prev){ e.bend_x=prev.bend_x; e.bend_y=prev.bend_y; }
+    boardEdges[e.id]=e;
+  });
+  rebuildEdgeIndex();
+  scheduleEdgeRedraw();
+  }finally{ _boardLoading=false; }
+}
+
+/* ── nós ── */
+/* translate3d em vez de left/top: sai do caminho de layout e vai direto pro
+   compositor da GPU — é a diferença entre arrastar travando e arrastar liso. */
+function setNodePos(el,x,y){ el.style.transform=`translate3d(${x}px,${y}px,0)`; }
+/* Índice nó -> conectores, pra redesenhar SÓ o que o movimento afeta
+   (antes, mexer numa nota redesenhava todos os conectores do quadro). */
+let _edgeIndex={};
+function rebuildEdgeIndex(){
+  _edgeIndex={};
+  Object.values(boardEdges).forEach(e=>{
+    (_edgeIndex[e.from_node]=_edgeIndex[e.from_node]||[]).push(e.id);
+    (_edgeIndex[e.to_node]=_edgeIndex[e.to_node]||[]).push(e.id);
+  });
+}
+function edgesOfNode(id){ return _edgeIndex[id]||[]; }
+function renderBoardNode(n){
+  let el=document.getElementById('bn-'+n.id);
+  const isImg=n.type==='image';
+  if(!el){
+    el=document.createElement('div');
+    el.id='bn-'+n.id; el.className='board-node'+(isImg?' board-node-img':'');
+    el.dataset.bnId=n.id;
+    const canEdit=n.created_by===U.id;
+    el.innerHTML=`<div class="board-node-head" data-drag>
+        <span class="board-node-owner"></span>
+        <span class="board-node-actions">
+          <span class="board-node-link" data-link title="Conectar a partir desta">⤳</span>
+          ${canEdit?'<span class="board-node-del" data-del title="Apagar">×</span>':''}
+        </span>
+      </div>
+      ${isImg?`<img src="${n.image_url||''}" draggable="false">`:'<div class="board-node-body" contenteditable="true" spellcheck="false"></div>'}
+      <span class="board-node-rz" data-rz title="Redimensionar"></span>`;
+    el.querySelector('[data-drag]').addEventListener('pointerdown',e=>startBoardDrag(e,n.id));
+    el.querySelector('[data-rz]').addEventListener('pointerdown',e=>startBoardResize(e,n.id));
+    el.querySelector('[data-link]').addEventListener('click',e=>{ e.stopPropagation(); startConnectFrom(n.id); });
+    const del=el.querySelector('[data-del]'); if(del) del.addEventListener('click',e=>{ e.stopPropagation(); deleteBoardNode(n.id); });
+    if(!isImg){
+      const body=el.querySelector('.board-node-body');
+      body.addEventListener('blur',()=>saveBoardNodeContent(n.id,body.innerText));
+      body.addEventListener('pointerdown',e=>e.stopPropagation());
+      // cresce sozinha conforme o texto — o problema antigo de "texto grande e a nota não acompanha"
+      body.addEventListener('input',()=>autoGrowNode(n.id));
+    }
+    el.addEventListener('pointerdown',()=>{ el.style.zIndex=++zTop; },{passive:true});
+    el.addEventListener('click',()=>{ if(boardConnectMode) handleBoardConnectClick(n.id); });
+    $('boardInner').appendChild(el);
+  }
+  setNodePos(el,n.x||0,n.y||0);
+  el.style.width=(n.w||180)+'px';
+  if(isImg) el.style.height=(n.h||220)+'px';
+  else el.style.height=n.h?(n.h+'px'):'auto';
+  n._w=null; n._h=null;               // invalida o cache; remedimos fora do caminho crítico
+  requestAnimationFrame(()=>{ if(boardNodes[n.id]){ const e2=document.getElementById('bn-'+n.id); if(e2){ n._w=e2.offsetWidth; n._h=e2.offsetHeight; } } });
+  if(!isImg){
+    el.style.background=n.color||'#f5d78a';
+    const body=el.querySelector('.board-node-body');
+    if(body && document.activeElement!==body) body.innerText=n.content||'';
+  }
+  const ownerEl=el.querySelector('.board-node-owner'); if(ownerEl) ownerEl.textContent=(n.created_by===U.id)?'você':'';
+}
+/* garante que a nota nunca "corte" o texto: cresce a altura até caber */
+let _growRAF={};
+function autoGrowNode(id){
+  // Agrupa num frame: digitar rápido disparava uma medição de layout por tecla.
+  if(_growRAF[id]) return;
+  _growRAF[id]=requestAnimationFrame(()=>{
+    delete _growRAF[id];
+    const el=document.getElementById('bn-'+id); if(!el) return;
+    const n=boardNodes[id]; if(!n) return;
+    el.style.height='auto';
+    const needed=el.scrollHeight;
+    if(!n.h || needed>n.h){ n.h=needed; }
+    el.style.height=n.h+'px';
+    n._w=el.offsetWidth; n._h=el.offsetHeight;
+    scheduleEdgeRedraw(edgesOfNode(id));
+  });
+}
+
+async function addBoardNote(){
+  const supa=getSupa();
+  const c=boardViewportCenter();
+  const color=BOARD_COLORS[Math.floor(Math.random()*BOARD_COLORS.length)];
+  const row={ type:'text', content:'Nova nota', x:Math.round(c.x-90), y:Math.round(c.y-60), w:200, h:130, color, created_by:U.id };
+  const { data, error }=await supa.from('board_nodes').insert(row).select().maybeSingle();
+  if(error){ console.error('addBoardNote error',error); toast('Erro ao criar nota: '+error.message,'err'); return; }
+  boardNodes[data.id]=data; _nodeStamp[data.id]=data.updated_at||data.created_at||''; renderBoardNode(data);
+  const el=document.getElementById('bn-'+data.id); const body=el?.querySelector('.board-node-body');
+  if(body){ body.focus(); const range=document.createRange(); range.selectNodeContents(body); const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }
+}
+
+function handleBoardImage(input){
+  const file=input.files[0]; if(!file) return;
+  uploadBoardImage(file); input.value='';
+}
+async function uploadBoardImage(file){
+  const supa=getSupa();
+  const { data:userData }=await supa.auth.getUser(); const user=userData.user;
+  if(!user){ toast('Sessão expirada, faça login de novo','err'); return; }
+  toast('Enviando imagem...','ok');
+  const ext=(file.type.split('/')[1]||'png').replace('jpeg','jpg');
+  const path=`${user.id}/img-${Date.now()}.${ext}`;
+  const { error:upErr }=await supa.storage.from('board').upload(path,file,{ cacheControl:'3600', upsert:true, contentType:file.type });
+  if(upErr){ console.error('uploadBoardImage error',upErr); toast('Erro ao enviar imagem: '+upErr.message,'err'); return; }
+  const { data:pub }=supa.storage.from('board').getPublicUrl(path);
+  if(!pub?.publicUrl){ toast('Erro ao gerar link da imagem','err'); return; }
+  const c=boardViewportCenter();
+  const row={ type:'image', image_url:pub.publicUrl, x:Math.round(c.x-110), y:Math.round(c.y-110), w:220, h:220, created_by:U.id };
+  const { data, error }=await supa.from('board_nodes').insert(row).select().maybeSingle();
+  if(error){ console.error('uploadBoardImage insert error',error); toast('Erro ao adicionar imagem: '+error.message,'err'); return; }
+  boardNodes[data.id]=data; _nodeStamp[data.id]=data.updated_at||data.created_at||''; renderBoardNode(data);
+}
+
+function saveBoardNodeContent(id,text){
+  const n=boardNodes[id]; if(!n||n.content===text) return; n.content=text;
+  const el=document.getElementById('bn-'+id);
+  const h=el?Math.round(el.offsetHeight):null;
+  if(h) n.h=h;
+  const patch={ content:text, updated_at:new Date().toISOString() };
+  if(h) patch.h=h;
+  getSupa().from('board_nodes').update(patch).eq('id',id).then(({error})=>{
+    if(error){ console.error('saveBoardNodeContent error',error); toast('Erro ao salvar nota: '+error.message,'err'); }
+    else _nodeStamp[id]=patch.updated_at;
+  });
+}
+
+/* ── arrastar nó ── */
+function startBoardDrag(e,id){
+  if(boardConnectMode) return;
+  e.preventDefault(); e.stopPropagation();
+  const el=document.getElementById('bn-'+id); if(!el) return;
+  const n0=boardNodes[id]||{};
+  boardDrag={ id, startX:e.clientX, startY:e.clientY, startLeft:n0.x||0, startTop:n0.y||0, edges:edgesOfNode(id) };
+  try{ el.setPointerCapture(e.pointerId); }catch(err){}
+  el.style.zIndex=++zTop; el.classList.add('dragging');
+  el.addEventListener('pointermove',onBoardDragMove);
+  el.addEventListener('pointerup',endBoardDrag,{once:true});
+  el.addEventListener('pointercancel',endBoardDrag,{once:true});
+}
+function onBoardDragMove(e){
+  if(!boardDrag) return;
+  const el=document.getElementById('bn-'+boardDrag.id); if(!el) return;
+  // divide pela escala: no zoom out, 1px de mouse = mais px de quadro
+  const dx=(e.clientX-boardDrag.startX)/boardView.scale, dy=(e.clientY-boardDrag.startY)/boardView.scale;
+  const nx=Math.max(0,Math.min(BOARD_W,boardDrag.startLeft+dx)), ny=Math.max(0,Math.min(BOARD_H,boardDrag.startTop+dy));
+  setNodePos(el,nx,ny);
+  if(boardNodes[boardDrag.id]){ boardNodes[boardDrag.id].x=nx; boardNodes[boardDrag.id].y=ny; }
+  if(boardDrag.edges.length) scheduleEdgeRedraw(boardDrag.edges);
+}
+function endBoardDrag(){
+  if(!boardDrag) return;
+  const id=boardDrag.id; const el=document.getElementById('bn-'+id);
+  if(el){ el.removeEventListener('pointermove',onBoardDragMove); el.classList.remove('dragging'); }
+  const n=boardNodes[id];
+  boardDrag=null;
+  if(n){
+    const stamp=new Date().toISOString();
+    getSupa().from('board_nodes').update({ x:Math.round(n.x), y:Math.round(n.y), updated_at:stamp }).eq('id',id).then(({error})=>{
+      if(error){ console.error('endBoardDrag save error',error); toast('Erro ao salvar posição: '+error.message,'err'); }
+      else _nodeStamp[id]=stamp;
+    });
+  }
+}
+
+/* ── redimensionar nó ── */
+function startBoardResize(e,id){
+  e.preventDefault(); e.stopPropagation();
+  const el=document.getElementById('bn-'+id); if(!el) return;
+  boardResize={ id, startX:e.clientX, startY:e.clientY, startW:el.offsetWidth, startH:el.offsetHeight };
+  try{ el.setPointerCapture(e.pointerId); }catch(err){}
+  el.classList.add('resizing');
+  el.addEventListener('pointermove',onBoardResizeMove);
+  el.addEventListener('pointerup',endBoardResize,{once:true});
+  el.addEventListener('pointercancel',endBoardResize,{once:true});
+}
+function onBoardResizeMove(e){
+  if(!boardResize) return;
+  const el=document.getElementById('bn-'+boardResize.id); if(!el) return;
+  const dx=(e.clientX-boardResize.startX)/boardView.scale, dy=(e.clientY-boardResize.startY)/boardView.scale;
+  const w=Math.max(120,boardResize.startW+dx), h=Math.max(80,boardResize.startH+dy);
+  el.style.width=w+'px'; el.style.height=h+'px';
+  const n=boardNodes[boardResize.id]; if(n){ n.w=w; n.h=h; n._w=w; n._h=h; }
+  scheduleEdgeRedraw(edgesOfNode(boardResize.id));
+}
+function endBoardResize(){
+  if(!boardResize) return;
+  const id=boardResize.id, el=document.getElementById('bn-'+id);
+  if(el){ el.removeEventListener('pointermove',onBoardResizeMove); el.classList.remove('resizing'); }
+  const n=boardNodes[id]; boardResize=null;
+  if(n){
+    const stamp=new Date().toISOString();
+    getSupa().from('board_nodes').update({ w:Math.round(n.w), h:Math.round(n.h), updated_at:stamp }).eq('id',id).then(({error})=>{
+      if(error){ console.error('endBoardResize save error',error); toast('Erro ao salvar tamanho: '+error.message,'err'); }
+      else _nodeStamp[id]=stamp;
+    });
+  }
+}
+
+/* ── conectores ── */
+function toggleBoardConnect(){
+  boardConnectMode=!boardConnectMode; boardConnectFrom=null;
+  $('boardConnectBtn').classList.toggle('on',boardConnectMode);
+  $('boardHint').style.display=boardConnectMode?'block':'none';
+  document.querySelectorAll('.board-node.connect-sel').forEach(e=>e.classList.remove('connect-sel'));
+}
+function startConnectFrom(id){
+  if(!boardConnectMode){ boardConnectMode=true; $('boardConnectBtn').classList.add('on'); $('boardHint').style.display='block'; }
+  boardConnectFrom=id;
+  document.querySelectorAll('.board-node.connect-sel').forEach(e=>e.classList.remove('connect-sel'));
+  document.getElementById('bn-'+id)?.classList.add('connect-sel');
+}
+async function handleBoardConnectClick(id){
+  if(!boardConnectFrom){ startConnectFrom(id); return; }
+  if(boardConnectFrom===id) return;
+  const fromId=boardConnectFrom;
+  document.getElementById('bn-'+fromId)?.classList.remove('connect-sel');
+  boardConnectFrom=null;
+  const { data, error }=await getSupa().from('board_edges').insert({ from_node:fromId, to_node:id, created_by:U.id }).select().maybeSingle();
+  if(error){ console.error('handleBoardConnectClick error',error); toast('Erro ao conectar: '+error.message,'err'); return; }
+  boardEdges[data.id]=data; rebuildEdgeIndex(); scheduleEdgeRedraw();
+}
+
+/* Geometria: liga as bordas dos cards (não o centro) e curva a linha.
+   O quanto entorta vem de bend_x/bend_y — deslocamento perpendicular guardado
+   por conector. Se essas colunas não existirem no banco, a curva ainda funciona
+   na sessão atual, só não persiste (ver saveEdgeBend). */
+/* Dimensões vêm do CACHE (n._w/n._h), nunca de offsetWidth/offsetHeight.
+   Ler offsetWidth força o navegador a recalcular o layout na hora ("layout
+   thrashing"); fazendo isso para cada conector a cada frame de arrasto, o
+   quadro inteiro engasgava. Agora medimos só quando o nó muda de verdade. */
+function nodeDims(n,id){
+  if(n._w&&n._h) return [n._w,n._h];
+  const el=document.getElementById('bn-'+id);
+  if(el){ n._w=el.offsetWidth; n._h=el.offsetHeight; return [n._w,n._h]; }
+  return [n.w||180,n.h||120];
+}
+function edgeGeometry(edge){
+  const a=boardNodes[edge.from_node], b=boardNodes[edge.to_node];
+  if(!a||!b) return null;
+  const [aw,ah]=nodeDims(a,edge.from_node);
+  const [bw,bh]=nodeDims(b,edge.to_node);
+  const acx=(a.x||0)+aw/2, acy=(a.y||0)+ah/2;
+  const bcx=(b.x||0)+bw/2, bcy=(b.y||0)+bh/2;
+  const mx=(acx+bcx)/2, my=(acy+bcy)/2;
+  const bx=mx+(edge.bend_x||0), by=my+(edge.bend_y||0);
+  const p1=rectAnchor(a.x||0,a.y||0,aw,ah,bx,by);
+  const p2=rectAnchor(b.x||0,b.y||0,bw,bh,bx,by);
+  return { p1,p2,cx:bx,cy:by,mx,my };
+}
+function rectAnchor(x,y,w,h,tx,ty){
+  const cx=x+w/2, cy=y+h/2, dx=tx-cx, dy=ty-cy;
+  if(!dx&&!dy) return {x:cx,y:cy};
+  const sx=dx?(w/2)/Math.abs(dx):Infinity, sy=dy?(h/2)/Math.abs(dy):Infinity;
+  const s=Math.min(sx,sy);
+  return { x:cx+dx*s, y:cy+dy*s };
+}
+/* Coalesce vários pedidos de redesenho num único frame — antes isso rodava
+   dezenas de vezes por segundo recriando o SVG inteiro, principal fonte de travamento. */
+let _edgeDirty=null; // null = redesenhar tudo; Set = só esses conectores
+function scheduleEdgeRedraw(ids){
+  if(ids&&_edgeDirty){ ids.forEach(i=>_edgeDirty.add(i)); }
+  else if(ids&&!_edgeRAF){ _edgeDirty=new Set(ids); }
+  else _edgeDirty=null;
+  if(_edgeRAF) return;
+  _edgeRAF=requestAnimationFrame(()=>{ _edgeRAF=null; const d=_edgeDirty; _edgeDirty=null; redrawBoardEdges(d); });
+}
+function removeEdgeEls(id){
+  const g=_edgeEls[id];
+  if(g){ Object.values(g).forEach(el=>el&&el.remove()); delete _edgeEls[id]; }
+  if(boardSelectedEdge===id) boardSelectedEdge=null;
+}
+function redrawBoardEdges(only){
+  const svg=$('boardSvg'); if(!svg) return;
+  ensureEdgeDefs(svg);
+  if(!only) Object.keys(_edgeEls).forEach(id=>{ if(!boardEdges[id]) removeEdgeEls(id); });
+  const list=only?[...only].map(id=>boardEdges[id]).filter(Boolean):Object.values(boardEdges);
+  list.forEach(edge=>{
+    const geo=edgeGeometry(edge);
+    if(!geo){ removeEdgeEls(edge.id); return; }
+    const sel=boardSelectedEdge===edge.id;
+    let g=_edgeEls[edge.id];
+    if(!g){  // cria uma vez e reaproveita — nada de innerHTML='' a cada frame
+      const NS='http://www.w3.org/2000/svg';
+      const hit=document.createElementNS(NS,'path');   // traço invisível e grosso: facilita clicar
+      hit.setAttribute('class','board-edge-hit'); hit.setAttribute('fill','none');
+      hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width','18');
+      hit.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); boardSelectedEdge=edge.id; scheduleEdgeRedraw(); });
+      hit.addEventListener('dblclick',ev=>{ ev.stopPropagation(); resetEdgeBend(edge.id); });
+      const path=document.createElementNS(NS,'path');
+      path.setAttribute('class','board-edge'); path.setAttribute('fill','none');
+      const handle=document.createElementNS(NS,'circle'); // alça pra entortar
+      handle.setAttribute('class','board-edge-handle'); handle.setAttribute('r','7');
+      handle.addEventListener('pointerdown',ev=>startEdgeBend(ev,edge.id));
+      const del=document.createElementNS(NS,'g');         // ação de apagar, só quando selecionado
+      del.setAttribute('class','board-edge-del');
+      const dc=document.createElementNS(NS,'circle'); dc.setAttribute('r','9'); dc.setAttribute('fill','rgba(196,92,92,.95)');
+      const dt=document.createElementNS(NS,'text'); dt.setAttribute('text-anchor','middle'); dt.setAttribute('dy','3.5');
+      dt.setAttribute('font-size','11'); dt.setAttribute('fill','#fff'); dt.textContent='×';
+      del.appendChild(dc); del.appendChild(dt);
+      del.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); deleteBoardEdge(edge.id); });
+      svg.appendChild(hit); svg.appendChild(path); svg.appendChild(handle); svg.appendChild(del);
+      g=_edgeEls[edge.id]={hit,path,handle,del};
+    }
+    const d=`M ${geo.p1.x} ${geo.p1.y} Q ${geo.cx} ${geo.cy} ${geo.p2.x} ${geo.p2.y}`;
+    g.path.setAttribute('d',d); g.hit.setAttribute('d',d);
+    g.path.setAttribute('marker-end','url(#boardArrow)');
+    g.path.classList.toggle('sel',sel);
+    // alça aparece ao passar o mouse/selecionar; o ponto da curva em t=0.5
+    const hx=0.25*geo.p1.x+0.5*geo.cx+0.25*geo.p2.x, hy=0.25*geo.p1.y+0.5*geo.cy+0.25*geo.p2.y;
+    g.handle.setAttribute('cx',hx); g.handle.setAttribute('cy',hy);
+    g.handle.classList.toggle('show',sel);
+    const canDel=edge.created_by===U.id;
+    g.del.style.display=(sel&&canDel)?'':'none';
+    g.del.setAttribute('transform',`translate(${hx+22},${hy-16})`);
+  });
+}
+function ensureEdgeDefs(svg){
+  if(svg.querySelector('#boardArrow')) return;
+  const NS='http://www.w3.org/2000/svg';
+  const defs=document.createElementNS(NS,'defs');
+  const m=document.createElementNS(NS,'marker');
+  m.setAttribute('id','boardArrow'); m.setAttribute('viewBox','0 0 10 10');
+  m.setAttribute('refX','9'); m.setAttribute('refY','5');
+  m.setAttribute('markerWidth','6'); m.setAttribute('markerHeight','6');
+  m.setAttribute('orient','auto-start-reverse');
+  const p=document.createElementNS(NS,'path');
+  p.setAttribute('d','M 0 0 L 10 5 L 0 10 z'); p.setAttribute('fill','rgba(120,235,170,.9)');
+  m.appendChild(p); defs.appendChild(m); svg.appendChild(defs);
+}
+/* entortar o conector arrastando a alça */
+function startEdgeBend(e,id){
+  e.preventDefault(); e.stopPropagation();
+  boardEdgeDrag={ id };
+  boardSelectedEdge=id;
+  const move=ev=>{
+    const edge=boardEdges[id]; if(!edge) return;
+    const geo=edgeGeometry(edge); if(!geo) return;
+    const p=boardPoint(ev.clientX,ev.clientY);
+    // a alça fica no ponto médio da curva; o controle precisa ir ao dobro da distância
+    edge.bend_x=(p.x-geo.mx)*2; edge.bend_y=(p.y-geo.my)*2;
+    scheduleEdgeRedraw();
+  };
+  const up=()=>{
+    document.removeEventListener('pointermove',move);
+    document.removeEventListener('pointerup',up);
+    boardEdgeDrag=null; saveEdgeBend(id);
+  };
+  document.addEventListener('pointermove',move);
+  document.addEventListener('pointerup',up);
+}
+function resetEdgeBend(id){
+  const edge=boardEdges[id]; if(!edge) return;
+  edge.bend_x=0; edge.bend_y=0; scheduleEdgeRedraw(); saveEdgeBend(id);
+}
+/* Persiste a curvatura. Se o banco ainda não tiver as colunas bend_x/bend_y,
+   ignoramos o erro silenciosamente: a curva continua valendo nesta sessão e o
+   resto do quadro segue funcionando normalmente. */
+/* Guarda o que EU curvei e ainda não vi confirmado pelo servidor. Enquanto o id
+   estiver aqui, o valor local vence qualquer coisa que venha do banco.
+   Era esta a causa do conector "voltar a ficar reto": se a escrita falhasse
+   (coluna ausente ou falta de policy de UPDATE no RLS), o banco continuava com 0
+   e o poll de 6s trazia esse 0 por cima da curva que você acabou de fazer. */
+let _bendPending={};   // id -> {x,y}
+let _bendWarned=false;
+function saveEdgeBend(id){
+  const edge=boardEdges[id]; if(!edge) return;
+  const x=Math.round(edge.bend_x||0), y=Math.round(edge.bend_y||0);
+  _bendPending[id]={x,y};
+  getSupa().from('board_edges').update({ bend_x:x, bend_y:y }).eq('id',id).select().maybeSingle().then(({data,error})=>{
+    if(error){
+      if(!_bendWarned){
+        _bendWarned=true;
+        console.warn('Curvatura não salva no banco:',error.message);
+        toast('A curva vale nesta sessão, mas o banco recusou salvar','err');
+      }
+      return; // mantém em _bendPending: local continua vencendo
+    }
+    // confirmado pelo servidor com o mesmo valor → pode soltar
+    if(data && data.bend_x===x && data.bend_y===y) delete _bendPending[id];
+  });
+}
+
+async function deleteBoardNode(id){
+  const { error }=await getSupa().from('board_nodes').delete().eq('id',id);
+  if(error){ console.error('deleteBoardNode error',error); toast('Erro ao apagar: '+error.message,'err'); return; }
+  delete boardNodes[id]; delete _nodeStamp[id]; document.getElementById('bn-'+id)?.remove();
+  Object.keys(boardEdges).forEach(eid=>{ const e=boardEdges[eid]; if(e.from_node===id||e.to_node===id){ delete boardEdges[eid]; removeEdgeEls(eid); } });
+  rebuildEdgeIndex(); scheduleEdgeRedraw();
+}
+async function deleteBoardEdge(id){
+  const { error }=await getSupa().from('board_edges').delete().eq('id',id);
+  if(error){ console.error('deleteBoardEdge error',error); toast('Erro ao apagar corrente: '+error.message,'err'); return; }
+  delete boardEdges[id]; delete _bendPending[id]; removeEdgeEls(id); rebuildEdgeIndex(); scheduleEdgeRedraw();
+}
+
+function openFriendsHub(){
+  if(!U.id){ toast('Faça login para ver amigos e conversas','err'); return; }
+  $('friendsHubPanel').classList.add('on');
+  switchFhubTab(currentFhubTab);
+}
+function closeFriendsHub(e){
+  if(e && e.target!==$('friendsHubPanel')) return;
+  $('friendsHubPanel').classList.remove('on');
+}
+function switchFhubTab(tab){
+  currentFhubTab=tab;
+  document.querySelectorAll('.fhub-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  $('fhubConvList').style.display=tab==='conv'?'flex':'none';
+  $('fhubReqList').style.display=tab==='req'?'flex':'none';
+  if(tab==='conv') loadConversations(); else loadFriendRequests();
+}
+async function loadConversations(){
+  if(!U.id) return;
+  const supa=getSupa();
+  const box=$('fhubConvList');
+  const { data, error }=await supa.from('dm_messages').select('*').or(`sender.eq.${U.id},recipient.eq.${U.id}`).order('created_at',{ascending:false}).limit(300);
+  if(error){ console.error('loadConversations error:',error); box.innerHTML='<div class="ge">Erro ao carregar conversas</div>'; return; }
+  if(!data||!data.length){ box.innerHTML='<div class="ge">Nenhuma conversa ainda. Busque membros para começar.</div>'; return; }
+  const order=[], map=new Map();
+  data.forEach(m=>{
+    const otherId=m.sender===U.id?m.recipient:m.sender;
+    if(!map.has(otherId)){ map.set(otherId,m); order.push(otherId); }
+  });
+  box.innerHTML='';
+  for(const otherId of order){
+    const last=map.get(otherId);
+    const { data:p } = await supa.from('profiles').select('id,name,username,photo,color,frame,frame_scale,frame_x,frame_y').eq('id',otherId).maybeSingle();
+    const row=document.createElement('div'); row.className='fhub-row'; row.onclick=()=>openDM(otherId);
+    const av=document.createElement('div'); av.className='fhub-av'; av.innerHTML=avatarHTML(p||{name:'U'});
+    const info=document.createElement('div'); info.className='fhub-info';
+    const unread=dmUnreadBySender[otherId]||0;
+    info.innerHTML=`${nameRowHTML((p&&p.name)||'Usuário',otherId,'fhub-name')}<div class="fhub-sub">${(last.sender===U.id?'Você: ':'')+(last.content||'').slice(0,40)}</div>`;
+    if(unread)info.querySelector('.name-row').insertAdjacentHTML('beforeend','<span style="color:var(--green);flex-shrink:0">•</span>');
+    row.appendChild(av); row.appendChild(info); box.appendChild(row);
+  }
+}
+async function loadFriendRequests(){
+  if(!U.id) return;
+  const supa=getSupa();
+  const box=$('fhubReqList');
+  const { data, error }=await supa.from('friendships').select('*').eq('recipient',U.id).eq('status','pending').order('created_at',{ascending:false});
+  if(error){ console.error('loadFriendRequests error:',error); box.innerHTML='<div class="ge">Erro ao carregar solicitações</div>'; return; }
+  fabPendingReq=(data||[]).length; updateFabBadge();
+  if(!data||!data.length){ box.innerHTML='<div class="ge">Nenhuma solicitação pendente</div>'; return; }
+  box.innerHTML='';
+  for(const f of data){
+    const { data:p } = await supa.from('profiles').select('id,name,username,photo,color,frame,frame_scale,frame_x,frame_y').eq('id',f.requester).maybeSingle();
+    const row=document.createElement('div'); row.className='fhub-row';
+    const av=document.createElement('div'); av.className='fhub-av'; av.innerHTML=avatarHTML(p||{name:'U'});
+    const openReq=()=>{ closeFriendsHub(); openProfile(f.requester); };
+    av.onclick=openReq;
+    const info=document.createElement('div'); info.className='fhub-info'; info.onclick=openReq;
+    info.innerHTML=`${nameRowHTML((p&&p.name)||'Usuário',f.requester,'fhub-name')}<div class="fhub-sub">${p&&p.username?'@'+p.username:'quer ser seu amigo'}</div>`;
+    const acts=document.createElement('div'); acts.className='fhub-acts';
+    const acceptBtn=document.createElement('button'); acceptBtn.className='btn bp bsm'; acceptBtn.textContent='Aceitar';
+    acceptBtn.onclick=async(e)=>{ e.stopPropagation(); await acceptFriendRequest(f.requester,true); loadFriendRequests(); };
+    const declineBtn=document.createElement('button'); declineBtn.className='btn bg2 bsm'; declineBtn.textContent='Recusar';
+    declineBtn.onclick=async(e)=>{ e.stopPropagation(); await declineFriendRequest(f.requester,true); loadFriendRequests(); };
+    acts.appendChild(acceptBtn); acts.appendChild(declineBtn);
+    row.appendChild(av); row.appendChild(info); row.appendChild(acts);
+    box.appendChild(row);
+  }
+}
+
+/* Amigos */
+async function sendFriendRequest(toId){
+  const supa=getSupa(); const { data:meData }=await supa.auth.getUser(); if(!meData.user){ toast('Faça login para adicionar amigos','err'); return; }
+  const from=meData.user.id; if(from===toId) return;
+  const exists=await supa.from('friendships').select('status').or(`and(requester.eq.${from},recipient.eq.${toId}),and(requester.eq.${toId},recipient.eq.${from})`).maybeSingle();
+  if(exists.data){ toast(exists.data.status==='accepted'?'Vocês já são amigos':'Pedido já existe','err'); openProfile(toId); return; }
+  const { error }=await supa.from('friendships').insert({ requester:from, recipient:toId, status:'pending' });
+  if(error){ console.warn(error); toast('Erro','err'); return; }
+  toast('Pedido enviado','ok'); openProfile(toId);
+}
+async function acceptFriendRequest(fromId,silent){ const supa=getSupa(); const me=(await supa.auth.getUser()).data.user.id; const { error }=await supa.from('friendships').update({ status:'accepted' }).match({ requester:fromId, recipient:me }); if(error){ console.warn(error); toast('Erro','err'); return; } toast('Amigo adicionado','ok'); if(!silent) openProfile(fromId); pollFriendRequestsCount(); }
+async function declineFriendRequest(fromId,silent){ const supa=getSupa(); const me=(await supa.auth.getUser()).data.user.id; const { error }=await supa.from('friendships').delete().match({ requester:fromId, recipient:me }); if(error){ console.warn(error); toast('Erro','err'); return; } toast('Solicitação recusada','ok'); if(!silent) closeModal('profileModal'); pollFriendRequestsCount(); }
+async function cancelFriendRequest(toId){ const supa=getSupa(); const me=(await supa.auth.getUser()).data.user.id; const { error }=await supa.from('friendships').delete().match({ requester:me, recipient:toId }); if(error){ console.warn(error); toast('Erro','err'); return; } toast('Pedido cancelado','ok'); openProfile(toId); }
+async function removeFriend(uid){ const supa=getSupa(); const me=(await supa.auth.getUser()).data.user.id; const { error }=await supa.from('friendships').delete().or(`and(requester.eq.${me},recipient.eq.${uid}),and(requester.eq.${uid},recipient.eq.${me})`); if(error){ console.warn(error); toast('Erro','err'); return; } toast('Removido','ok'); openProfile(uid); }
+function applyTbPos(pos){
+  if(document.body.classList.contains('light'))return;
+  const tb=$('toolbar'),rs=$('roomScene'),rb=$('rbody'),cw=$('cw');
+  tb.className='toolbar'; rb.style.flexDirection='';
+  if(tb.parentNode)tb.parentNode.removeChild(tb);
+  if(pos==='top') rs.insertBefore(tb,rb);
+  else if(pos==='bottom'){tb.classList.add('tb-bottom');rs.appendChild(tb);}
+  else if(pos==='left'){tb.classList.add('tb-left');rb.style.flexDirection='row';rb.insertBefore(tb,cw);}
+  else if(pos==='right'){tb.classList.add('tb-right');rb.style.flexDirection='row';rb.appendChild(tb);}
+}
+
+/* ── ROOM ── */
