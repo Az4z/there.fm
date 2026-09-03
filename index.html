@@ -604,6 +604,9 @@
 <script src="js/youtube-panel.js"></script>
 <script src="js/call.js"></script>
 <!-- Navegador embutido: só ativa dentro do APK; no site fica inerte -->
+<!-- Biblioteca do Capacitor: só existe dentro do APK (o build a coloca aqui).
+     No site o arquivo não existe e o navegador ignora silenciosamente. -->
+<script src="js/capacitor.js"></script>
 <script src="js/theater.js"></script>
 <!-- YouTube Panel -->
 <div class="sp" id="ytPanel" onclick="closeYtPanel(event)">
