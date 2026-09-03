@@ -56,6 +56,18 @@ jobs:
         run: |
           npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
 
+          # ERRO CORRIGIDO: o pacote era instalado para o build, mas a biblioteca
+          # JavaScript nunca ia junto para dentro do app. Sem ela, window.Capacitor
+          # existe (vem da parte nativa) mas fica sem registerPlugin — era esse o
+          # aviso "Versão do Capacitor incompatível no APK".
+          if [ -f node_modules/@capacitor/core/dist/capacitor.js ]; then
+            cp node_modules/@capacitor/core/dist/capacitor.js www/js/capacitor.js
+            echo "biblioteca do Capacitor incluída no app"
+          else
+            echo "AVISO: não encontrei dist/capacitor.js"
+            ls node_modules/@capacitor/core/dist/ || true
+          fi
+
       - name: Montar o projeto Android
         run: |
           npx cap add android
