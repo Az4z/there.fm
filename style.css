@@ -1125,3 +1125,38 @@ body.board-open .main-more{display:none!important}
 .theater-embed .theater-title,
 .theater-embed .theater-sub,
 .theater-embed .theater-body .btn{visibility:hidden}
+
+/* aviso dentro da faixa "a seguir" quando não há sugestões */
+.vun-empty{font-size:.6rem;color:var(--dust);line-height:1.4;align-self:center;
+  padding:0 .5rem;max-width:230px}
+/* a faixa aberta aparece mesmo com pouco conteúdo (antes exigia estar cheia) */
+.vupnext.open{max-height:120px;opacity:1;padding:.5rem .55rem;
+  border-top:1px solid rgba(255,255,255,.07);overflow-x:auto;overflow-y:hidden}
+
+/* ── HISTÓRICO DE MENSAGENS DA SALA ───────────────────── */
+.log-dot{display:none;position:absolute;top:-2px;right:-2px;width:7px;height:7px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 7px var(--green);animation:pulse 1.6s ease-in-out infinite}
+.room-log{display:none;position:fixed;left:50%;transform:translateX(-50%);bottom:5.2rem;z-index:120;
+  width:min(420px,92vw);max-height:52vh;flex-direction:column;
+  background:rgba(10,16,13,.97);backdrop-filter:var(--blur);
+  border:1px solid rgba(255,255,255,.1);border-radius:var(--rl);
+  box-shadow:0 14px 40px rgba(0,0,0,.6);overflow:hidden}
+.room-log.on{display:flex;animation:popIn .22s var(--ease)}
+.room-log-head{display:flex;align-items:center;justify-content:space-between;
+  padding:.65rem .8rem;border-bottom:1px solid var(--ghost);flex-shrink:0;
+  font-family:'Cinzel',serif;font-size:.72rem;text-transform:uppercase;
+  letter-spacing:.1em;color:var(--bone)}
+.rl-btn{background:none;border:none;color:var(--dust);font-size:.68rem;cursor:pointer;
+  padding:.2rem .35rem;text-transform:none;letter-spacing:0;font-family:'DM Sans',sans-serif}
+.rl-btn:hover{color:var(--bone)}
+.room-log-list{flex:1;min-height:0;overflow-y:auto;padding:.6rem .7rem;
+  display:flex;flex-direction:column;gap:.5rem}
+.rl-item{display:flex;flex-direction:column;gap:.15rem;padding:.4rem .55rem;border-radius:var(--r);
+  background:rgba(255,255,255,.035);border:1px solid transparent}
+.rl-item.rl-eu{background:rgba(74,222,128,.07);border-color:rgba(120,235,170,.18)}
+.rl-topo{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem}
+.rl-nome{font-size:.68rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rl-hora{font-size:.58rem;color:var(--shadow);flex-shrink:0;font-variant-numeric:tabular-nums}
+.rl-txt{font-size:.8rem;color:var(--bone);line-height:1.4;word-break:break-word;overflow-wrap:anywhere}
+.rl-gif{max-width:150px;border-radius:8px;display:block;margin-top:.2rem}
+.rl-vazio{font-size:.75rem;color:var(--dust);text-align:center;padding:1.6rem .5rem;font-style:italic}
