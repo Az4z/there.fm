@@ -1109,3 +1109,12 @@ body.board-open .main-more{display:none!important}
 .cpi.cp-bad  .cpav{box-shadow:0 0 0 2px rgba(196,92,92,.7)}
 .cpi.cp-wait .cpname::after{content:' · conectando';font-size:.6rem;color:#e0a35c;font-weight:400}
 .cpi.cp-bad  .cpname::after{content:' · sem áudio';font-size:.6rem;color:var(--crimson);font-weight:400}
+
+/* ── card do navegador embutido (APK) ── */
+.theater-body{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:.2rem;padding:.8rem;text-align:center;background:rgba(0,0,0,.35)}
+.theater-title{font-size:.82rem;color:var(--bone);line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.theater-sub{font-size:.66rem;color:var(--dust)}
+.theater-live .theater-sub{color:var(--green)}
+.theater-live .theater-title{color:#dff5e6}
