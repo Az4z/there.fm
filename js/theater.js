@@ -47,10 +47,14 @@ function initTheater(){
       }catch(e){}
     });
     // botões da barra do navegador
-    Theater.addListener('backToRoom',()=>{ toast('Vídeo continua tocando na sala'); });
     Theater.addListener('captured',()=>{
       ensureTheaterCard();
+      setTimeout(entrarModoCard,120);   // espera o card existir no layout
       toast('Vídeo capturado · sincronizado com a sala');
+    });
+    Theater.addListener('backToRoom',()=>{
+      ensureTheaterCard();
+      setTimeout(entrarModoCard,120);
     });
     Theater.addListener('pageChanged', ({url,title})=>{
       theaterState.url=url; theaterState.title=title;
@@ -121,7 +125,7 @@ function ensureTheaterCard(){
         <button class="cx" onclick="closeTheaterCard()">×</button>
       </div>
     </div>
-    <div class="theater-body">
+    <div class="theater-body" id="thr-body-${theaterUid}">
       <div class="theater-title" id="thr-title-${theaterUid}">Nenhum vídeo detectado</div>
       <div class="theater-sub" id="thr-sub-${theaterUid}">Abra uma página com vídeo</div>
       <button class="btn bp bsm" onclick="showTheater()" style="margin-top:.5rem">Abrir navegador</button>
@@ -157,6 +161,57 @@ function ensureTheaterCard(){
   broadcast({type:'ADD_ITEM',item:{type:'theater',x:80,y:80,id}});
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   VÍDEO DENTRO DO CARD
+   Antes o vídeo tocava no navegador escondido e o card mostrava só texto —
+   você ouvia mas não via. Agora o navegador nativo é posicionado EXATAMENTE
+   sobre a área do card, com as barras escondidas e a página isolada (só o
+   player visível). O resultado é o vídeo aparecendo dentro do card, como
+   qualquer outro player da sala.
+   ══════════════════════════════════════════════════════════════════ */
+let _modoCard=false, _boundsRAF=null;
+
+function areaDoCard(){
+  const card=qs('[data-ytuid="'+theaterUid+'"]'); if(!card) return null;
+  const corpo=$('thr-body-'+theaterUid) || card;
+  const r=corpo.getBoundingClientRect();
+  if(r.width<10||r.height<10) return null;
+  return { x:Math.round(r.left), y:Math.round(r.top),
+           w:Math.round(r.width), h:Math.round(r.height) };
+}
+/* Reposiciona o navegador quando o card é arrastado, redimensionado ou a tela gira. */
+function encaixarNoCard(){
+  if(!_modoCard||!Theater) return;
+  if(_boundsRAF) return;
+  _boundsRAF=requestAnimationFrame(()=>{
+    _boundsRAF=null;
+    const a=areaDoCard(); if(!a) return;
+    Theater.setBounds(a).catch(()=>{});
+  });
+}
+async function entrarModoCard(){
+  if(!Theater) return;
+  const a=areaDoCard(); if(!a) return;
+  try{
+    await Theater.isolate({on:true});     // esconde o resto da página
+    await Theater.setBounds(a);           // encaixa o navegador no card
+    _modoCard=true;
+    const card=qs('[data-ytuid="'+theaterUid+'"]');
+    if(card) card.classList.add('theater-embed');
+    // acompanha movimento/redimensionamento do card
+    window.addEventListener('resize',encaixarNoCard);
+    if(!window.__thrObs){
+      window.__thrObs=setInterval(()=>{ if(_modoCard) encaixarNoCard(); },400);
+    }
+  }catch(e){ console.error('modo card',e); }
+}
+async function sairModoCard(){
+  if(!Theater) return;
+  _modoCard=false;
+  const card=qs('[data-ytuid="'+theaterUid+'"]');
+  if(card) card.classList.remove('theater-embed');
+  try{ await Theater.isolate({on:false}); await Theater.setFullscreen(); }catch(e){}
+}
 /* Mantém o card em dia com o que está tocando na página. */
 function updateTheaterCard(){
   const t=$('thr-title-'+theaterUid), s=$('thr-sub-'+theaterUid), vt=$('vt-'+theaterUid);
@@ -170,10 +225,15 @@ function updateTheaterCard(){
   const card=qs('[data-ytuid="'+theaterUid+'"]');
   if(card) card.classList.toggle('theater-live',!!theaterState.found);
 }
-function showTheater(){ if(Theater) Theater.show(); }
+async function showTheater(){
+  if(!Theater) return;
+  await sairModoCard();     // devolve a página ao normal antes de navegar
+  Theater.show();
+}
 function hideTheater(){ if(Theater) Theater.hide(); }
 async function closeTheaterCard(){
-  if(Theater) await Theater.close();
+  if(Theater){ await sairModoCard(); await Theater.close(); }
+  if(window.__thrObs){ clearInterval(window.__thrObs); window.__thrObs=null; }
   const card=qs('[data-ytuid="'+theaterUid+'"]');
   if(card){ card.remove(); els=els.filter(e=>e!==card); }
   if(theaterItemId) broadcast({type:'REMOVE_ITEM',itemId:theaterItemId});
