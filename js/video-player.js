@@ -78,7 +78,8 @@ function switchVideoCardTo(card,kind,source,broadcastIt){
     setTimeout(()=>initMediaPlayer(uid,kind,source,VID_W,VID_H),50);
   }
   const wrap=$('vun-'+uid);
-  if(kind==='youtube')videoShowSuggestions(uid,source); else if(wrap)wrap.innerHTML='';
+  if(wrap) wrap.innerHTML='';                      // limpa as do vídeo anterior
+  if(kind==='youtube' && _upNextOpen[uid]) videoShowSuggestions(uid,source);
   if(broadcastIt){
     setSyncHost(uid,U.id);            // eu troquei o vídeo: eu viro o relógio
     broadcast({type:'MEDIA_SWITCH',itemId:card.dataset.itemId,kind,source,uid:U.id});
@@ -404,11 +405,30 @@ async function videoShowSuggestions(uid,vid){
 let _upNextOpen={};
 function toggleUpNext(uid){
   const wrap=$('vun-'+uid); if(!wrap) return;
+  const card=qs('[data-ytuid="'+uid+'"]');
   const open=!_upNextOpen[uid];
   _upNextOpen[uid]=open;
   wrap.classList.toggle('open',open);
   const btn=$('vnb-'+uid); if(btn) btn.classList.toggle('on',open);
-  const card=qs('[data-ytuid="'+uid+'"]');
+
+  if(open){
+    /* BUG CORRIGIDO: as sugestões só eram buscadas ao criar o card. Se a busca
+       falhasse, ou se o vídeo não fosse do YouTube, a faixa ficava vazia — e
+       como o CSS só a exibe quando tem conteúdo, o botão parecia morto.
+       Agora ele carrega sob demanda e sempre mostra alguma coisa: lista,
+       "procurando..." ou uma explicação. */
+    const kind=card?card.dataset.kind:'';
+    const vid =card?card.dataset.vid:'';
+    if(!wrap.children.length){
+      if(kind==='youtube' && vid){
+        wrap.innerHTML='<span class="vun-lbl">buscando...</span>';
+        videoShowSuggestions(uid,vid);
+      }else{
+        wrap.innerHTML='<span class="vun-lbl">sem sugestões</span>'
+          +'<span class="vun-empty">A lista de próximos só existe para vídeos do YouTube.</span>';
+      }
+    }
+  }
   if(card){
     // o card cresce/encolhe junto, pra faixa não cobrir o vídeo
     const h=parseInt(card.style.height)||0;

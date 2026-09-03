@@ -251,19 +251,9 @@ let _reconnectTries=0, _reconnectTimer=null, _reconnecting=false, _roomCode=null
 function openChannel(code){
   closeChannel();
   _roomCode=code;
-  _ch=getSupa().channel('room:'+code,{config:{broadcast:{self:false,ack:false}}});
-  _ch.on('broadcast',{event:'msg'},payload=>{ if(payload?.payload)handleMsg(payload.payload); });
-  _ch.subscribe(s=>{
-    setConnStatus(s);
-    if(s==='SUBSCRIBED'){
-      _reconnectTries=0; _reconnecting=false;
-      clearTimeout(_reconnectTimer); _reconnectTimer=null;
-      announceSelf();
-    }
-    // qualquer estado de falha dispara a reconexão
-    if(s==='CHANNEL_ERROR'||s==='TIMED_OUT'||s==='CLOSED') scheduleReconnect();
-  });
-  channel=_ch;
+  _fechandoDeProposito=false;
+  _reconnectTries=0; _reconnecting=false; _caiuDeVerdade=false; _avisouDesistencia=false;
+  reopenChannelKeepingState(code);   // um caminho só: menos chance de divergirem
 }
 function announceSelf(){
   const av=qs('.av-wrap[data-uid="'+U.id+'"]');
@@ -273,43 +263,99 @@ function announceSelf(){
 }
 /* Espera crescente (1s, 2s, 4s... até 15s) pra não martelar o servidor
    quando a rede está fora — e volta rápido quando é só um soluço curto. */
+/* ══════════════════════════════════════════════════════════════════
+   RECONEXÃO — reescrita.
+
+   O que estava errado (o "reconectando sem parar"):
+   • Cada tentativa criava um canal novo, mas o antigo continuava vivo e ainda
+     disparando CHANNEL_ERROR/CLOSED. Cada um desses disparos agendava OUTRA
+     reconexão — o número de tentativas crescia sozinho, em avalanche.
+   • O aviso "Reconectado" aparecia toda vez que o canal reportava sucesso,
+     mesmo quando nada tinha caído de fato: daí a enxurrada de notificações.
+   • Fechar a sala de propósito também contava como queda e disparava tudo isso.
+
+   Agora: só existe UMA tentativa em andamento por vez, o canal antigo é
+   descartado antes de abrir o próximo, e o aviso só aparece quando houve mesmo
+   uma queda. Depois de várias falhas seguidas o app para e avisa, em vez de
+   ficar tentando para sempre.
+   ══════════════════════════════════════════════════════════════════ */
+const MAX_TENTATIVAS = 8;
+let _fechandoDeProposito = false;   // sair da sala não é queda
+let _caiuDeVerdade = false;         // controla se o "Reconectado" faz sentido
+let _chGeracao = 0;                 // identifica o canal atual; os antigos são ignorados
+
 function scheduleReconnect(){
-  if(!room||_reconnectTimer) return;
+  if(!room || _fechandoDeProposito) return;
+  if(_reconnectTimer || _reconnecting) return;   // já há uma tentativa em curso
+  if(_reconnectTries >= MAX_TENTATIVAS){
+    setConnStatus('CLOSED');
+    const lbl=$('connLbl'); if(lbl) lbl.textContent='sem conexão';
+    if(!_avisouDesistencia){
+      _avisouDesistencia=true;
+      toast('Não consegui reconectar. Toque para tentar de novo.','err');
+      const el=$('connLbl'); if(el){ el.style.cursor='pointer'; el.onclick=()=>reconectarAgora(); }
+    }
+    return;
+  }
   _reconnecting=true;
+  _caiuDeVerdade=true;
   const delay=Math.min(15000, 1000*Math.pow(2,_reconnectTries));
   _reconnectTries++;
   setConnStatus('JOINING');
   const lbl=$('connLbl'); if(lbl) lbl.textContent='reconectando...';
   _reconnectTimer=setTimeout(()=>{
     _reconnectTimer=null;
-    if(!room) return;
-    try{ if(_ch) getSupa().removeChannel(_ch); }catch(e){}
-    _ch=null;
+    if(!room || _fechandoDeProposito){ _reconnecting=false; return; }
+    descartarCanal();
     reopenChannelKeepingState(_roomCode);
   },delay);
+}
+let _avisouDesistencia=false;
+/* Tentativa manual: zera o contador e tenta na hora. */
+function reconectarAgora(){
+  _reconnectTries=0; _avisouDesistencia=false; _reconnecting=false;
+  clearTimeout(_reconnectTimer); _reconnectTimer=null;
+  descartarCanal();
+  reopenChannelKeepingState(_roomCode);
+}
+/* Descarta o canal atual de forma definitiva: sem isso ele continuava vivo,
+   disparando erros e agendando novas reconexões em paralelo. */
+function descartarCanal(){
+  _chGeracao++;
+  if(_ch){
+    try{ _ch.unsubscribe(); }catch(e){}
+    try{ getSupa().removeChannel(_ch); }catch(e){}
+  }
+  _ch=null; channel=null;
 }
 /* Reabre o canal SEM limpar a sala: os itens, o quadro e a chamada continuam
    como estavam; só a conexão é refeita e pedimos o estado atualizado. */
 function reopenChannelKeepingState(code){
-  if(!code) return;
-  _ch=getSupa().channel('room:'+code,{config:{broadcast:{self:false,ack:false}}});
-  _ch.on('broadcast',{event:'msg'},payload=>{ if(payload?.payload)handleMsg(payload.payload); });
-  _ch.subscribe(s=>{
+  if(!code || !room) return;
+  const geracao = ++_chGeracao;          // marca este canal
+  const ch=getSupa().channel('room:'+code,{config:{broadcast:{self:false,ack:false}}});
+  _ch=ch; channel=ch;
+  ch.on('broadcast',{event:'msg'},payload=>{ if(payload?.payload)handleMsg(payload.payload); });
+  ch.subscribe(s=>{
+    // callbacks de canais antigos são ignorados — era daqui que vinha a avalanche
+    if(geracao !== _chGeracao) return;
     setConnStatus(s);
     if(s==='SUBSCRIBED'){
-      _reconnectTries=0; _reconnecting=false;
+      _reconnectTries=0; _reconnecting=false; _avisouDesistencia=false;
+      clearTimeout(_reconnectTimer); _reconnectTimer=null;
       announceSelf();
-      // pede a quem já está lá o estado atual, pra recuperar o que perdemos offline
       broadcast({type:'REQ_STATE',uid:U.id});
-      peers={};                       // limpa fantasmas; todos se reanunciam no próximo heartbeat
+      peers={};
       document.querySelectorAll('.av-wrap[data-uid]').forEach(el=>{ if(el.dataset.uid!==U.id) el.remove(); });
       document.querySelectorAll('.pi[data-uid]').forEach(el=>{ if(el.dataset.uid!==U.id) el.remove(); });
       if(callActive) recoverCallAfterReconnect();
-      toast('Reconectado','ok');
+      if(_caiuDeVerdade){ toast('Reconectado','ok'); _caiuDeVerdade=false; }
     }
-    if(s==='CHANNEL_ERROR'||s==='TIMED_OUT'||s==='CLOSED') scheduleReconnect();
+    if(s==='CHANNEL_ERROR'||s==='TIMED_OUT'||s==='CLOSED'){
+      _reconnecting=false;                // libera para uma nova tentativa
+      scheduleReconnect();
+    }
   });
-  channel=_ch;
 }
 /* Depois de uma queda, as conexões de voz podem ter morrido. Reconstrói as que
    caíram, sem derrubar as que sobreviveram. */
@@ -356,12 +402,15 @@ function initNetworkRecovery(){
   });
 }
 function closeChannel(){
+  // marca a saída como intencional ANTES de derrubar o canal: sem isso, o
+  // CLOSED gerado por nós mesmos era tratado como queda e disparava reconexão
+  _fechandoDeProposito=true;
   clearTimeout(_reconnectTimer); _reconnectTimer=null;
   _reconnectTries=0; _reconnecting=false; _roomCode=null;
+  _caiuDeVerdade=false; _avisouDesistencia=false;
   if(!_ch)return;
-  broadcast({type:'LEAVE',uid:U.id});
-  try{getSupa().removeChannel(_ch);}catch(e){}
-  _ch=null; channel=null;
+  try{ broadcast({type:'LEAVE',uid:U.id}); }catch(e){}
+  descartarCanal();
 }
 function broadcast(msg){ if(!_ch)return; _ch.send({type:'broadcast',event:'msg',payload:msg}).catch(()=>{}); }
 
@@ -378,8 +427,16 @@ function handleMsg(msg){
       renderPeer(msg.uid,msg); break;
     case 'LEAVE':   removePeer(msg.uid); handleCallPeerGone(msg.uid); break;
     case 'MOVE_AV': movePeerAv(msg.uid,msg.x,msg.y); break;
-    case 'CHAT':    showPeerBubble(msg.uid,msg.text,false); break;
-    case 'GIF_CHAT':showPeerBubble(msg.uid,msg.url,true); break;
+    case 'CHAT':
+      showPeerBubble(msg.uid,msg.text,false);
+      registrarMensagem((peers[msg.uid]&&peers[msg.uid].name)||'Alguém',msg.text,false,
+                        peers[msg.uid]&&peers[msg.uid].color,false);
+      break;
+    case 'GIF_CHAT':
+      showPeerBubble(msg.uid,msg.url,true);
+      registrarMensagem((peers[msg.uid]&&peers[msg.uid].name)||'Alguém',msg.url,true,
+                        peers[msg.uid]&&peers[msg.uid].color,false);
+      break;
     case 'ADD_ITEM':    applyAdd(msg.item); break;
     case 'REMOVE_ITEM': applyRm(msg.itemId); break;
     case 'MOVE_ITEM':   applyMv(msg.itemId,msg.x,msg.y); break;

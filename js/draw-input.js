@@ -122,12 +122,150 @@ function select(el){ deselect(); el.classList.add('sel'); }
 function deselect(){ document.querySelectorAll('.sel').forEach(e=>e.classList.remove('sel')); }
 function delSel(){ const s=qs('.card.sel'); if(!s)return; const id=s.dataset.itemId; s.remove(); els=els.filter(e=>e!==s); if(id)broadcast({type:'REMOVE_ITEM',itemId:id}); toast('Removido'); }
 
+/* ══════════════════════════════════════════════════════════════════
+   HISTÓRICO DE MENSAGENS DA SALA
+   As mensagens apareciam em balões que somem em 8 segundos — o que é bom para
+   não poluir a tela, mas quem estava distraído perdia o que foi dito.
+   Aqui elas ficam guardadas para consulta, separadas POR SALA (o histórico de
+   uma sala não aparece em outra) e mantidas no próprio aparelho, então
+   sobrevivem a recarregar a página e a quedas de conexão.
+   ══════════════════════════════════════════════════════════════════ */
+const LOG_MAX = 300;      // teto de mensagens exibidas
+let _logNaoLidas = 0;
+let _logCarregando = false;
+
+/* O histórico fica no Supabase para TODOS na sala verem o mesmo.
+   O armazenamento local segue existindo como cópia: garante que as mensagens
+   apareçam na hora (sem esperar a rede) e que você ainda veja o histórico se a
+   conexão cair ou se a tabela ainda não tiver sido criada no banco. */
+function logChave(){ return 'tfm_log_' + ((room && room.code) || 'sem-sala'); }
+function lerCacheLocal(){
+  try{ return JSON.parse(localStorage.getItem(logChave()) || '[]'); }catch(e){ return []; }
+}
+function gravarCacheLocal(lista){
+  try{ localStorage.setItem(logChave(), JSON.stringify(lista.slice(-LOG_MAX))); }catch(e){}
+}
+function juntarNoCache(msg){
+  const lista=lerCacheLocal();
+  // evita repetir a mesma mensagem (chega pelo canal e também vem do banco)
+  if(lista.some(m=>m.h===msg.h && m.n===msg.n && m.t===msg.t)) return lista;
+  lista.push(msg); gravarCacheLocal(lista); return lista;
+}
+
+/* Registra uma mensagem.
+   `souEu` diz se fui eu quem enviou — só nesse caso gravamos no banco, senão
+   cada pessoa gravaria a mesma mensagem de novo e o histórico ficaria repetido. */
+function registrarMensagem(nome, texto, isGif, cor, souEu){
+  if(!room) return;
+  const meu = (souEu===undefined) ? !nome : souEu;
+  const msg = { n: nome || U.name || 'Você', t: texto, g: !!isGif,
+                c: cor || U.color || '#c45c5c', eu: meu, h: Date.now() };
+  juntarNoCache(msg);
+
+  if(meu) salvarNoBanco(msg);
+
+  const aberto=$('roomLog') && $('roomLog').classList.contains('on');
+  if(aberto) renderRoomLog(false);
+  else if(!meu){ _logNaoLidas++; atualizarPontoLog(); }
+}
+/* Grava no banco. Se a tabela ainda não existir, avisa uma vez no console e
+   segue funcionando só com a cópia local — nada quebra. */
+let _avisouTabela=false;
+function salvarNoBanco(msg){
+  try{
+    getSupa().from('room_messages').insert({
+      room_code: room.code,
+      sender_id: U.id || null,
+      sender_name: msg.n,
+      sender_color: msg.c,
+      content: msg.t,
+      is_gif: msg.g
+    }).then(({error})=>{
+      if(error && !_avisouTabela){
+        _avisouTabela=true;
+        console.warn('Histórico não salvo no banco (crie a tabela room_messages):', error.message);
+      }
+    });
+  }catch(e){}
+}
+/* Busca o histórico compartilhado da sala. */
+async function carregarDoBanco(){
+  if(!room) return null;
+  try{
+    const { data, error }=await getSupa()
+      .from('room_messages').select('*')
+      .eq('room_code', room.code)
+      .order('created_at',{ascending:true})
+      .limit(LOG_MAX);
+    if(error) return null;
+    return (data||[]).map(r=>({
+      n:r.sender_name||'Alguém', t:r.content, g:!!r.is_gif,
+      c:r.sender_color||'#c45c5c', eu:(r.sender_id===U.id),
+      h:new Date(r.created_at).getTime()
+    }));
+  }catch(e){ return null; }
+}
+function atualizarPontoLog(){
+  const d=$('logDot'); if(!d) return;
+  d.style.display=_logNaoLidas>0?'block':'none';
+}
+function toggleRoomLog(){
+  const p=$('roomLog'); if(!p) return;
+  const abrindo=!p.classList.contains('on');
+  p.classList.toggle('on',abrindo);
+  if(abrindo){ _logNaoLidas=0; atualizarPontoLog(); renderRoomLog(true); }
+}
+/* `buscarNoBanco` só é verdadeiro ao abrir o painel: durante a conversa o
+   cache já está em dia e uma consulta a cada mensagem seria desperdício. */
+async function renderRoomLog(buscarNoBanco){
+  const box=$('roomLogList'); if(!box) return;
+  let lista=lerCacheLocal();
+  if(lista.length) desenharLog(box,lista);
+  else box.innerHTML='<div class="rl-vazio">Carregando...</div>';
+
+  if(buscarNoBanco && !_logCarregando){
+    _logCarregando=true;
+    const doBanco=await carregarDoBanco();
+    _logCarregando=false;
+    if(doBanco){
+      gravarCacheLocal(doBanco);      // o banco é a fonte de verdade
+      lista=doBanco;
+    }
+    desenharLog(box,lista);
+  }
+}
+function desenharLog(box,lista){
+  if(!lista.length){
+    box.innerHTML='<div class="rl-vazio">Nenhuma mensagem nesta sala ainda.</div>';
+    return;
+  }
+  box.innerHTML=lista.map(m=>{
+    const hora=new Date(m.h).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const corpo=m.g
+      ? `<img class="rl-gif" src="${m.t}" loading="lazy" alt="">`
+      : `<span class="rl-txt">${escapeHtml(m.t)}</span>`;
+    return `<div class="rl-item${m.eu?' rl-eu':''}">
+       <div class="rl-topo"><span class="rl-nome" style="color:${m.c}">${escapeHtml(m.n)}</span>
+       <span class="rl-hora">${hora}</span></div>${corpo}</div>`;
+  }).join('');
+  box.scrollTop=box.scrollHeight;
+}
+/* Limpa só a sua cópia local; o histórico da sala continua para os outros. */
+function limparRoomLog(){
+  try{ localStorage.removeItem(logChave()); }catch(e){}
+  _logNaoLidas=0; atualizarPontoLog();
+  const box=$('roomLogList'); if(box) desenharLog(box,[]);
+  toast('Sua cópia local foi limpa (o histórico da sala continua)');
+}
+
 /* ── MESSAGES ── */
 function handleMsgKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
 function sendMsg(){
   const inp=$('msgInput'),txt=inp.value.trim(); if(!txt)return;
   let av=qs('.av-wrap[data-uid="'+U.id+'"]')||qs('.av-wrap'); if(!av){toast('Avatar não encontrado','err');return;}
-  showBubble(av,txt,false); broadcast({type:'CHAT',uid:U.id,text:txt}); inp.value=''; inp.focus();
+  showBubble(av,txt,false); broadcast({type:'CHAT',uid:U.id,text:txt});
+  registrarMensagem(null,txt,false,null,true);
+  inp.value=''; inp.focus();
 }
 function showBubble(wrap,content,isGif){
   let ex=wrap.querySelector('.bubble'); if(ex)ex.remove();
