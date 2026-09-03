@@ -372,7 +372,25 @@ function startReceiveWatchdog(){
     if(!callActive) return;
     for(const uid of Object.keys(callPeers)){
       const entry=callPeers[uid]; if(!entry||!entry.pc) continue;
-      if(entry.pc.iceConnectionState==='closed') continue;
+      const est=entry.pc.iceConnectionState;
+      if(est==='closed') continue;
+
+      /* BUG CORRIGIDO — era daqui que vinha o "conectando / sem áudio" piscando.
+         O vigia contava tempo sem áudio DESDE O INÍCIO, mas estabelecer a conexão
+         leva vários segundos (mais ainda quando precisa passar pelo servidor de
+         retransmissão). Aos 4s ele já marcava "conectando", aos 8s declarava
+         falha e reiniciava a negociação — jogando fora todo o progresso e
+         recomeçando do zero, em círculos.
+         Agora ele só vigia DEPOIS que a conexão está de pé, e ainda espera 6
+         segundos para o áudio começar a fluir antes de considerar problema. */
+      if(est!=='connected' && est!=='completed'){
+        entry.stalledFor=0;
+        entry.conectadoEm=0;
+        continue;                     // ainda conectando: deixa em paz
+      }
+      if(!entry.conectadoEm) entry.conectadoEm=Date.now();
+      if(Date.now()-entry.conectadoEm < 6000){ entry.stalledFor=0; continue; }
+
       try{
         const stats=await entry.pc.getStats();
         let bytes=0;
@@ -384,13 +402,17 @@ function startReceiveWatchdog(){
           const p=callParticipants[uid];
           if(p&&p.muted){ entry.stalledFor=0; continue; }   // mudo de propósito não é falha
           entry.stalledFor=(entry.stalledFor||0)+2;
-          if(entry.stalledFor>=8){
-            console.warn('Sem áudio de',uid,'— refazendo a rota');
+          if(entry.stalledFor>=10){
+            // não refaz a rota mais de uma vez a cada 20s: reinícios em sequência
+            // impediam a conexão de assentar
+            const agora=Date.now();
+            if(agora-(entry.ultimoRestart||0) > 20000){
+              entry.ultimoRestart=agora;
+              console.warn('Sem áudio de',uid,'— refazendo a rota');
+              updateCallPeerState(uid,'failed');
+              restartPeerIce(uid);
+            }
             entry.stalledFor=0;
-            updateCallPeerState(uid,'failed');
-            restartPeerIce(uid);
-          }else if(entry.stalledFor>=4){
-            updateCallPeerState(uid,'checking');
           }
         }
       }catch(e){}

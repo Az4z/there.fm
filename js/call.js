@@ -212,10 +212,16 @@ function restartPeerIce(uid){
 }
 /* Mostra na lista quem está realmente conectado — antes não havia como saber
    que a voz de alguém não estava chegando. */
+/* Estado exibido na lista. Conectar leva alguns segundos e isso é normal —
+   por isso "sem áudio" (vermelho) só aparece depois que a conexão já esteve de
+   pé e o som parou de chegar. Antes, o vermelho piscava durante a conexão
+   normal e dava a impressão de que algo estava quebrado. */
 function updateCallPeerState(uid,state){
   const row=qs('.cpi[data-uid="'+uid+'"]'); if(!row) return;
+  const entry=callPeers[uid];
   const ok=(state==='ok'||state==='connected'||state==='completed');
-  const bad=(state==='failed'||state==='closed');
+  // só é "falha" de verdade se a conexão chegou a funcionar antes
+  const bad=(state==='failed'||state==='closed') && !!(entry&&entry.conectadoEm);
   row.classList.toggle('cp-bad',bad);
   row.classList.toggle('cp-wait',!ok&&!bad);
 }
