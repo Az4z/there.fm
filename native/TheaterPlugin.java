@@ -178,6 +178,21 @@ public class TheaterPlugin extends Plugin {
     private static final String ISOLAR =
         "window.__thrIsolar && window.__thrIsolar(%s);";
 
+    /**
+     * Diz qual versão do plugin está dentro do APK.
+     *
+     * Serve para o JavaScript perceber quando o APK foi compilado com um plugin
+     * antigo: nesse caso os comandos novos (encaixar no card, isolar o vídeo)
+     * simplesmente não existem e falhariam em silêncio, deixando o vídeo tocando
+     * invisível — sem nenhuma pista do motivo.
+     */
+    @PluginMethod
+    public void version(PluginCall call) {
+        JSObject o = new JSObject();
+        o.put("v", 2);
+        call.resolve(o);
+    }
+
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @PluginMethod
     public void open(PluginCall call) {
