@@ -44,14 +44,35 @@ function initTheater(){
 }
 
 /* Abre o navegador dentro do app. */
-async function openTheater(url){
-  if(!initTheater()){
-    toast('A navegação dentro do app só funciona na versão APK','err');
-    return;
+/* Diz exatamente o que está faltando, em vez de falhar em silêncio.
+   Antes o botão ficava escondido quando algo dava errado, e não havia como
+   saber se o problema era estar no site, o plugin não ter entrado no APK,
+   ou outra coisa. */
+function theaterDiagnostico(){
+  if(!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()))
+    return 'Você está no site pelo navegador. Esta função só existe no aplicativo (APK).';
+  if(!(window.Capacitor.registerPlugin))
+    return 'Versão do Capacitor incompatível no APK.';
+  try{
+    const p=window.Capacitor.registerPlugin('Theater');
+    if(!p) return 'O plugin não foi encontrado no APK.';
+  }catch(e){
+    return 'O plugin não foi incluído no APK. Confira se native/TheaterPlugin.java e native/MainActivity.java estão no repositório.';
   }
+  return null;
+}
+async function openTheater(url){
+  const problema=theaterDiagnostico();
+  if(problema){ toast(problema,'err'); console.warn('[navegador]',problema); return; }
+  if(!initTheater()){ toast('Não consegui iniciar o navegador embutido','err'); return; }
   if(!room){ toast('Entre em uma sala primeiro','err'); return; }
-  await Theater.open({ url: url || 'https://www.google.com' });
-  ensureTheaterCard();
+  try{
+    await Theater.open({ url: url || 'https://www.google.com' });
+    ensureTheaterCard();
+  }catch(e){
+    console.error('[navegador] falha ao abrir',e);
+    toast('Falha ao abrir o navegador: '+(e.message||e),'err');
+  }
 }
 
 /* Cria (uma vez) o card na sala que representa o vídeo do navegador, e o
@@ -136,12 +157,11 @@ async function closeTheaterCard(){
 }
 
 /* Botão na barra da sala — só aparece quando rodando como app. */
-function setupTheaterButton(){
-  if(!theaterAvailable()) return;
-  const btn=$('theaterBtn');
-  if(btn) btn.style.display='flex';
-}
-/* Mostra o botão assim que o app carrega (dentro do APK). No site nada acontece. */
+/* O botão fica sempre visível: se a função não estiver disponível, ele explica
+   o motivo ao ser tocado (ver theaterDiagnostico). */
 document.addEventListener('DOMContentLoaded',()=>{
-  try{ if(initTheater()) setupTheaterButton(); }catch(e){}
+  try{
+    if(initTheater()) console.log('[navegador] plugin pronto');
+    else console.log('[navegador] indisponível:', theaterDiagnostico());
+  }catch(e){ console.warn('[navegador]',e); }
 });
