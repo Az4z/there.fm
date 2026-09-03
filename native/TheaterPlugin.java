@@ -46,7 +46,7 @@ public class TheaterPlugin extends Plugin {
     private EditText urlBar;
     private TextView status;
     private Button capturar;
-    private LinearLayout barraTopo, barraAcoes;
+    private LinearLayout barraTopo, barraAcoes, coluna;
     private boolean modoCard = false;
 
     /**
@@ -198,11 +198,19 @@ public class TheaterPlugin extends Plugin {
     public void open(PluginCall call) {
         final String url = call.getString("url", "https://www.google.com");
         getActivity().runOnUiThread(() -> {
-            if (root == null) buildUi();
-            root.setVisibility(View.VISIBLE);
-            urlBar.setText(url);
-            web.loadUrl(url);
-            call.resolve();
+            try {
+                if (root == null) buildUi();
+                root.setBackgroundColor(Color.BLACK);
+                if (coluna != null) coluna.setLayoutParams(new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                if (barraTopo  != null) barraTopo.setVisibility(View.VISIBLE);
+                if (barraAcoes != null) barraAcoes.setVisibility(View.VISIBLE);
+                modoCard = false;
+                root.setVisibility(View.VISIBLE);
+                urlBar.setText(url);
+                web.loadUrl(url);
+                call.resolve();
+            } catch (Throwable t) { call.reject("open: " + t.getMessage()); }
         });
     }
 
@@ -210,9 +218,11 @@ public class TheaterPlugin extends Plugin {
     @PluginMethod
     public void close(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            if (root != null) root.setVisibility(View.GONE);
-            if (web != null) web.loadUrl("about:blank");
-            call.resolve();
+            try {
+                if (root != null) root.setVisibility(View.GONE);
+                if (web != null) web.loadUrl("about:blank");
+                call.resolve();
+            } catch (Throwable t) { call.reject("close: " + t.getMessage()); }
         });
     }
 
@@ -220,17 +230,21 @@ public class TheaterPlugin extends Plugin {
     @PluginMethod
     public void hide(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            if (root != null) root.setVisibility(View.GONE);
-            call.resolve();
+            try {
+                if (root != null) root.setVisibility(View.GONE);
+                call.resolve();
+            } catch (Throwable t) { call.reject("hide: " + t.getMessage()); }
         });
     }
 
     @PluginMethod
     public void show(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            if (root == null) buildUi();
-            root.setVisibility(View.VISIBLE);
-            call.resolve();
+            try {
+                if (root == null) buildUi();
+                root.setVisibility(View.VISIBLE);
+                call.resolve();
+            } catch (Throwable t) { call.reject("show: " + t.getMessage()); }
         });
     }
 
@@ -239,11 +253,13 @@ public class TheaterPlugin extends Plugin {
         final String action = call.getString("action", "");
         final Double value = call.getDouble("value", 0.0);
         getActivity().runOnUiThread(() -> {
-            if (web != null) {
-                web.evaluateJavascript(
-                    "window.__theater && window.__theater." + action + "(" + value + ")", null);
-            }
-            call.resolve();
+            try {
+                if (web != null) {
+                    web.evaluateJavascript(
+                        "window.__theater && window.__theater." + action + "(" + value + ")", null);
+                }
+                call.resolve();
+            } catch (Throwable t) { call.reject("control: " + t.getMessage()); }
         });
     }
 
@@ -262,18 +278,31 @@ public class TheaterPlugin extends Plugin {
         final double w = call.getDouble("w", 0.0);
         final double h = call.getDouble("h", 0.0);
         getActivity().runOnUiThread(() -> {
-            if (root == null) buildUi();
-            float d = getContext().getResources().getDisplayMetrics().density;
-            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-                    Math.max(1, (int) (w * d)), Math.max(1, (int) (h * d)));
-            lp.leftMargin = (int) (x * d);
-            lp.topMargin  = (int) (y * d);
-            root.setLayoutParams(lp);
-            if (barraTopo  != null) barraTopo.setVisibility(View.GONE);
-            if (barraAcoes != null) barraAcoes.setVisibility(View.GONE);
-            root.setVisibility(View.VISIBLE);
-            modoCard = true;
-            call.resolve();
+            try {
+                if (root == null) buildUi();
+                /* CRASH CORRIGIDO: antes eu aplicava FrameLayout.LayoutParams no
+                   'root', mas o pai dele é o contêiner do Capacitor, que NÃO é
+                   necessariamente um FrameLayout — aplicar parâmetros do tipo
+                   errado lança exceção e derruba o app.
+                   Agora o root fica sempre ocupando a tela toda (transparente) e
+                   quem é posicionado é a 'coluna', cujo pai É o root e portanto
+                   aceita FrameLayout.LayoutParams com segurança. */
+                float d = getContext().getResources().getDisplayMetrics().density;
+                FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                        Math.max(1, (int) (w * d)), Math.max(1, (int) (h * d)));
+                lp.leftMargin = (int) (x * d);
+                lp.topMargin  = (int) (y * d);
+                if (coluna != null) coluna.setLayoutParams(lp);
+                root.setBackgroundColor(Color.TRANSPARENT);   // deixa a sala aparecer em volta
+                if (barraTopo  != null) barraTopo.setVisibility(View.GONE);
+                if (barraAcoes != null) barraAcoes.setVisibility(View.GONE);
+                root.setVisibility(View.VISIBLE);
+                modoCard = true;
+                call.resolve();
+            } catch (Throwable t) {
+                // nunca derrubar o app por causa do posicionamento
+                call.reject("setBounds: " + t.getMessage());
+            }
         });
     }
 
@@ -281,15 +310,20 @@ public class TheaterPlugin extends Plugin {
     @PluginMethod
     public void setFullscreen(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            if (root == null) buildUi();
-            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-            root.setLayoutParams(lp);
-            if (barraTopo  != null) barraTopo.setVisibility(View.VISIBLE);
-            if (barraAcoes != null) barraAcoes.setVisibility(View.VISIBLE);
-            root.setVisibility(View.VISIBLE);
-            modoCard = false;
-            call.resolve();
+            try {
+                if (root == null) buildUi();
+                FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+                if (coluna != null) coluna.setLayoutParams(lp);
+                root.setBackgroundColor(Color.BLACK);
+                if (barraTopo  != null) barraTopo.setVisibility(View.VISIBLE);
+                if (barraAcoes != null) barraAcoes.setVisibility(View.VISIBLE);
+                root.setVisibility(View.VISIBLE);
+                modoCard = false;
+                call.resolve();
+            } catch (Throwable t) {
+                call.reject("setFullscreen: " + t.getMessage());
+            }
         });
     }
 
@@ -298,18 +332,23 @@ public class TheaterPlugin extends Plugin {
     public void isolate(PluginCall call) {
         final boolean on = call.getBoolean("on", true);
         getActivity().runOnUiThread(() -> {
-            if (web != null) web.evaluateJavascript(String.format(ISOLAR, on ? "true" : "false"), null);
-            call.resolve();
+            try {
+                if (web != null) web.evaluateJavascript(String.format(ISOLAR, on ? "true" : "false"), null);
+                call.resolve();
+            } catch (Throwable t) { call.reject("isolate: " + t.getMessage()); }
         });
     }
 
     private void buildUi() {
+        /* Toda a montagem protegida: uma exceção aqui derrubaria o app inteiro,
+           e o navegador é um recurso extra — nunca deve levar o app junto. */
         ViewGroup parent = (ViewGroup) getBridge().getWebView().getParent();
 
         root = new FrameLayout(getContext());
         root.setBackgroundColor(Color.BLACK);
 
         LinearLayout col = new LinearLayout(getContext());
+        coluna = col;
         col.setOrientation(LinearLayout.VERTICAL);
 
         // ───────── barra de endereço ─────────
