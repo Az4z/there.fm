@@ -1118,3 +1118,10 @@ body.board-open .main-more{display:none!important}
 .theater-sub{font-size:.66rem;color:var(--dust)}
 .theater-live .theater-sub{color:var(--green)}
 .theater-live .theater-title{color:#dff5e6}
+
+/* quando o vídeo está encaixado no card, o corpo fica transparente para o
+   navegador nativo aparecer por baixo (é ele que desenha a imagem do vídeo) */
+.theater-embed .theater-body{background:transparent}
+.theater-embed .theater-title,
+.theater-embed .theater-sub,
+.theater-embed .theater-body .btn{visibility:hidden}
