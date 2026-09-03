@@ -15,7 +15,8 @@
 
 let Theater = null;
 let theaterState = { found:false, t:0, p:false, d:0, title:'', url:'' };
-let theaterUid = null;          // id do card que está usando o navegador
+let theaterUid = null;
+let _ultimoAchado = 0;   // quando vimos um vídeo pela última vez (para a carência)          // id do card que está usando o navegador
 let theaterItemId = null;
 
 /* Só existe dentro do app. No site, `Capacitor` não está definido. */
@@ -32,9 +33,24 @@ function initTheater(){
     Theater.addListener('videoState', ({state})=>{
       try{
         const s=JSON.parse(state);
-        theaterState=Object.assign({found:false,t:0,p:false,d:0},s);
+        if(s.found){
+          theaterState=Object.assign({found:true,t:0,p:false,d:0},s);
+          _ultimoAchado=Date.now();
+        }else{
+          /* CARÊNCIA DE 6s: ao trocar de página ou durante um recarregamento, o
+             detector reporta "sem vídeo" por alguns instantes. Antes eu zerava o
+             card na hora — era por isso que ele voltava para "Nenhum vídeo
+             detectado · 0:00" mesmo com o vídeo ainda tocando. */
+          if(Date.now()-_ultimoAchado>6000) theaterState.found=false;
+        }
         if(theaterUid) updateTheaterCard();
       }catch(e){}
+    });
+    // botões da barra do navegador
+    Theater.addListener('backToRoom',()=>{ toast('Vídeo continua tocando na sala'); });
+    Theater.addListener('captured',()=>{
+      ensureTheaterCard();
+      toast('Vídeo capturado · sincronizado com a sala');
     });
     Theater.addListener('pageChanged', ({url,title})=>{
       theaterState.url=url; theaterState.title=title;
