@@ -65,30 +65,16 @@ jobs:
           # arquivo em assets/icon.png, que tem prioridade sobre ele.
           ICON_URL: "https://i.postimg.cc/HLY9Xkyt/Tumblr-l-16411380525183.png"
         run: |
-          mkdir -p assets
-          if [ ! -f assets/icon.png ] && [ -n "$ICON_URL" ]; then
-            echo "baixando o ícone..."
-            curl -fsSL "$ICON_URL" -o /tmp/icon-original.png || echo "falha ao baixar"
-          fi
-
-          if [ -f /tmp/icon-original.png ] || [ -f assets/icon.png ]; then
-            SRC=assets/icon.png
-            [ -f /tmp/icon-original.png ] && [ ! -f assets/icon.png ] && SRC=/tmp/icon-original.png
-
-            # O gerador exige uma imagem QUADRADA de pelo menos 1024x1024. Como a
-            # imagem original pode ter qualquer proporção, encaixamos ela dentro de
-            # um quadrado preto (combina com o tema escuro do app) sem distorcer
-            # nem cortar nada.
-            convert "$SRC" -background black -resize 1024x1024 \
-                    -gravity center -extent 1024x1024 assets/icon.png
-            echo "ícone preparado em 1024x1024"
-
-            # Só o ícone: sem tela de abertura, o app abre direto.
+          # Usamos Python em vez do ImageMagick: os runners novos do Ubuntu não
+          # trazem mais o comando 'convert' (era esse o erro 'command not found').
+          pip install --quiet Pillow
+          python3 native/make_icon.py
+          if [ -f assets/icon.png ]; then
             npm install --no-save @capacitor/assets
-            npx capacitor-assets generate --android || echo 'aviso do gerador ignorado (o ícone é o que importa)'
+            npx capacitor-assets generate --android || echo 'aviso do gerador ignorado'
             echo "ícone aplicado"
           else
-            echo "sem imagem — usando ícone padrão"
+            echo "sem ícone personalizado — usando o padrão"
           fi
 
       # O 'cap add android' regenera a pasta android/ do zero a cada build, então
