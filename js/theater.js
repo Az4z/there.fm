@@ -60,10 +60,30 @@ function initTheater(){
       theaterState.url=url; theaterState.title=title;
     });
     Theater.addListener('theaterClosed', ()=>{ /* janela escondida; vídeo segue tocando */ });
+    verificarVersaoPlugin();
     return true;
   }catch(e){ console.warn('Theater indisponível:',e); return false; }
 }
 
+/* Confere se o APK tem a versão nova do plugin.
+   O JavaScript e o Java são atualizados separadamente: dá para ter o JS novo com
+   o Java velho dentro do APK. Quando isso acontece, os comandos de encaixar o
+   vídeo no card não existem e falham calados — o vídeo toca invisível e não há
+   pista nenhuma do motivo. Este aviso transforma isso em algo visível. */
+let _pluginV = 0;
+async function verificarVersaoPlugin(){
+  try{
+    if(typeof Theater.version!=='function'){ _pluginV=1; avisarPluginAntigo(); return; }
+    const r=await Theater.version();
+    _pluginV=(r && r.v) || 1;
+    if(_pluginV<2) avisarPluginAntigo();
+    else console.log('[navegador] plugin v'+_pluginV+' — vídeo no card disponível');
+  }catch(e){ _pluginV=1; avisarPluginAntigo(); }
+}
+function avisarPluginAntigo(){
+  console.warn('[navegador] plugin antigo no APK');
+  setTimeout(()=>toast('O APK está com a versão antiga do navegador. Atualize native/TheaterPlugin.java no repositório e refaça o build.','err'),1500);
+}
 /* Abre o navegador dentro do app. */
 /* Diz exatamente o que está faltando, em vez de falhar em silêncio.
    Antes o botão ficava escondido quando algo dava errado, e não havia como
@@ -191,6 +211,7 @@ function encaixarNoCard(){
 }
 async function entrarModoCard(){
   if(!Theater) return;
+  if(_pluginV<2){ avisarPluginAntigo(); return; }
   const a=areaDoCard(); if(!a) return;
   try{
     await Theater.isolate({on:true});     // esconde o resto da página
@@ -203,7 +224,10 @@ async function entrarModoCard(){
     if(!window.__thrObs){
       window.__thrObs=setInterval(()=>{ if(_modoCard) encaixarNoCard(); },400);
     }
-  }catch(e){ console.error('modo card',e); }
+  }catch(e){
+    console.error('modo card',e);
+    toast('Não consegui encaixar o vídeo no card: '+(e.message||e),'err');
+  }
 }
 async function sairModoCard(){
   if(!Theater) return;
