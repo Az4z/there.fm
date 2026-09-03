@@ -46,6 +46,8 @@ public class TheaterPlugin extends Plugin {
     private EditText urlBar;
     private TextView status;
     private Button capturar;
+    private LinearLayout barraTopo, barraAcoes;
+    private boolean modoCard = false;
 
     /**
      * Roda em TODAS as páginas e em todos os quadros dentro delas.
@@ -84,8 +86,43 @@ public class TheaterPlugin extends Plugin {
         "    }catch(e){ return false; }" +
         "    return true;" +
         "  }" +
+        "  window.__thrIsolar = function(on){" +
+        "    function alvo(){" +
+        "      var v = document.querySelector('video'); if (v) return v;" +
+        "      var fs = [].slice.call(document.querySelectorAll('iframe'));" +
+        "      fs.sort(function(a,b){ return (b.clientWidth*b.clientHeight)-(a.clientWidth*a.clientHeight); });" +
+        "      return fs[0] || null;" +
+        "    }" +
+        "    var el = alvo();" +
+        "    if (!on) {" +
+        "      var g = document.querySelectorAll('[data-thr-hid]');" +
+        "      for (var i=0;i<g.length;i++){ g[i].style.display=''; g[i].removeAttribute('data-thr-hid'); }" +
+        "      if (window.__thrAlvo) window.__thrAlvo.style.cssText = window.__thrCss || '';" +
+        "      document.documentElement.style.background=''; document.body.style.background='';" +
+        "    } else if (el) {" +
+        "      window.__thrAlvo = el; window.__thrCss = el.style.cssText;" +
+        "      var n = el;" +
+        "      while (n && n.parentElement) {" +
+        "        var ir = n.parentElement.children;" +
+        "        for (var i=0;i<ir.length;i++){" +
+        "          if (ir[i] !== n && ir[i].style && ir[i].style.display !== 'none') {" +
+        "            ir[i].setAttribute('data-thr-hid','1'); ir[i].style.display='none';" +
+        "          }" +
+        "        }" +
+        "        n.style.margin='0'; n.style.padding='0'; n.style.maxWidth='none'; n.style.width='100%';" +
+        "        n = n.parentElement;" +
+        "      }" +
+        "      el.style.cssText='position:fixed;left:0;top:0;width:100vw;height:100vh;max-width:none;max-height:none;z-index:2147483647;background:#000;border:0;object-fit:contain';" +
+        "      document.documentElement.style.background='#000'; document.body.style.background='#000';" +
+        "    }" +
+        "    var fs2 = document.querySelectorAll('iframe');" +
+        "    for (var k=0;k<fs2.length;k++){" +
+        "      try { fs2[k].contentWindow.postMessage({__thr:'isolar', on:on}, '*'); } catch(e){}" +
+        "    }" +
+        "  };" +
         "  window.addEventListener('message', function(e){" +
         "    var d = e.data;" +
+        "    if (d && d.__thr === 'isolar') { window.__thrIsolar(d.on); return; }" +
         "    if (!d || d.__thr !== 'cmd') return;" +
         "    executar(d.cmd, d.val);" +
         "  });" +
@@ -127,6 +164,19 @@ public class TheaterPlugin extends Plugin {
         "    }catch(e){}" +
         "  }, 500);" +
         "})();";
+
+    /**
+     * ISOLAR O VÍDEO — faz o player ocupar a tela inteira do navegador, escondendo
+     * cabeçalho, anúncios e o resto da página. É o que permite encaixar o vídeo
+     * dentro do card da sala: em vez de mostrar o site todo espremido, mostramos
+     * só a imagem do vídeo.
+     *
+     * Funciona tanto quando o vídeo está na própria página quanto quando está
+     * dentro de um quadro: nesse caso isolamos o quadro no documento principal e
+     * mandamos o quadro isolar o vídeo dentro dele.
+     */
+    private static final String ISOLAR =
+        "window.__thrIsolar && window.__thrIsolar(%s);";
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @PluginMethod
@@ -182,6 +232,62 @@ public class TheaterPlugin extends Plugin {
         });
     }
 
+    /**
+     * Coloca o navegador EXATAMENTE onde o card está na sala, escondendo as
+     * barras. É isso que faz o vídeo aparecer dentro do card em vez de ficar
+     * tocando invisível atrás da sala.
+     *
+     * As medidas chegam em pixels de CSS (do JavaScript) e precisam ser
+     * convertidas para pixels reais da tela.
+     */
+    @PluginMethod
+    public void setBounds(PluginCall call) {
+        final double x = call.getDouble("x", 0.0);
+        final double y = call.getDouble("y", 0.0);
+        final double w = call.getDouble("w", 0.0);
+        final double h = call.getDouble("h", 0.0);
+        getActivity().runOnUiThread(() -> {
+            if (root == null) buildUi();
+            float d = getContext().getResources().getDisplayMetrics().density;
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                    Math.max(1, (int) (w * d)), Math.max(1, (int) (h * d)));
+            lp.leftMargin = (int) (x * d);
+            lp.topMargin  = (int) (y * d);
+            root.setLayoutParams(lp);
+            if (barraTopo  != null) barraTopo.setVisibility(View.GONE);
+            if (barraAcoes != null) barraAcoes.setVisibility(View.GONE);
+            root.setVisibility(View.VISIBLE);
+            modoCard = true;
+            call.resolve();
+        });
+    }
+
+    /** Volta o navegador para a tela inteira, com as barras de volta. */
+    @PluginMethod
+    public void setFullscreen(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (root == null) buildUi();
+            FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+            root.setLayoutParams(lp);
+            if (barraTopo  != null) barraTopo.setVisibility(View.VISIBLE);
+            if (barraAcoes != null) barraAcoes.setVisibility(View.VISIBLE);
+            root.setVisibility(View.VISIBLE);
+            modoCard = false;
+            call.resolve();
+        });
+    }
+
+    /** Liga/desliga o isolamento do vídeo dentro da página. */
+    @PluginMethod
+    public void isolate(PluginCall call) {
+        final boolean on = call.getBoolean("on", true);
+        getActivity().runOnUiThread(() -> {
+            if (web != null) web.evaluateJavascript(String.format(ISOLAR, on ? "true" : "false"), null);
+            call.resolve();
+        });
+    }
+
     private void buildUi() {
         ViewGroup parent = (ViewGroup) getBridge().getWebView().getParent();
 
@@ -193,9 +299,10 @@ public class TheaterPlugin extends Plugin {
 
         // ───────── barra de endereço ─────────
         LinearLayout bar = new LinearLayout(getContext());
+        barraTopo = bar;
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setBackgroundColor(Color.parseColor("#0d1210"));
-        bar.setPadding(10, 12, 10, 12);
+        bar.setBackgroundColor(Color.parseColor("#0b100e"));
+        bar.setPadding(16, 18, 16, 14);
         bar.setGravity(Gravity.CENTER_VERTICAL);
 
         Button voltar = navButton("‹");
@@ -211,8 +318,12 @@ public class TheaterPlugin extends Plugin {
         urlBar.setHintTextColor(Color.GRAY);
         urlBar.setHint("Buscar ou digitar endereço");
         urlBar.setTextSize(13);
-        urlBar.setBackgroundColor(Color.parseColor("#1a211e"));
-        urlBar.setPadding(20, 14, 20, 14);
+        android.graphics.drawable.GradientDrawable fundoUrl = new android.graphics.drawable.GradientDrawable();
+        fundoUrl.setColor(Color.parseColor("#16211c"));
+        fundoUrl.setCornerRadius(24f);
+        fundoUrl.setStroke(2, Color.parseColor("#2b3a33"));
+        urlBar.setBackground(fundoUrl);
+        urlBar.setPadding(28, 18, 28, 18);
         urlBar.setLayoutParams(new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         urlBar.setOnEditorActionListener((v, id, ev) -> {
@@ -275,17 +386,13 @@ public class TheaterPlugin extends Plugin {
 
         // ───────── barra de ações (embaixo) ─────────
         LinearLayout acoes = new LinearLayout(getContext());
+        barraAcoes = acoes;
         acoes.setOrientation(LinearLayout.HORIZONTAL);
-        acoes.setBackgroundColor(Color.parseColor("#0d1210"));
-        acoes.setPadding(14, 12, 14, 12);
+        acoes.setBackgroundColor(Color.parseColor("#0b100e"));
+        acoes.setPadding(24, 20, 24, 24);
         acoes.setGravity(Gravity.CENTER_VERTICAL);
 
-        Button sala = new Button(getContext());
-        sala.setText("◀  Voltar à sala");
-        sala.setTextColor(Color.WHITE);
-        sala.setTextSize(13);
-        sala.setAllCaps(false);
-        sala.setBackgroundColor(Color.parseColor("#1a211e"));
+        Button sala = botaoEstilizado("\u25c0  Voltar à sala", "#16211c", "#e8e6df", "#2b3a33");
         sala.setOnClickListener(v -> {
             // esconde SEM parar o vídeo — era isto que faltava
             root.setVisibility(View.GONE);
@@ -294,18 +401,14 @@ public class TheaterPlugin extends Plugin {
 
         status = new TextView(getContext());
         status.setText("procurando vídeo...");
-        status.setTextColor(Color.parseColor("#9aa4a0"));
+        status.setTextColor(Color.parseColor("#8a948f"));
         status.setTextSize(11);
+        status.setPadding(18, 0, 18, 0);
         status.setGravity(Gravity.CENTER);
         status.setLayoutParams(new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        capturar = new Button(getContext());
-        capturar.setText("Assistir junto");
-        capturar.setTextColor(Color.parseColor("#0d1210"));
-        capturar.setTextSize(13);
-        capturar.setAllCaps(false);
-        capturar.setBackgroundColor(Color.parseColor("#7fe0a8"));
+        capturar = botaoEstilizado("Assistir junto", "#7fe0a8", "#0b1310", null);
         capturar.setEnabled(false);
         capturar.setAlpha(0.4f);
         capturar.setOnClickListener(v -> {
@@ -326,6 +429,27 @@ public class TheaterPlugin extends Plugin {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         parent.addView(root, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    /**
+     * Botão no visual do app: cantos arredondados, borda sutil e as mesmas cores
+     * do tema. Os botões padrão do Android destoavam completamente do resto.
+     */
+    private Button botaoEstilizado(String texto, String corFundo, String corTexto, String corBorda) {
+        Button b = new Button(getContext());
+        b.setText(texto);
+        b.setAllCaps(false);
+        b.setTextSize(13);
+        b.setTextColor(Color.parseColor(corTexto));
+        b.setPadding(34, 20, 34, 20);
+        b.setStateListAnimator(null);
+        b.setElevation(0f);
+        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+        g.setColor(Color.parseColor(corFundo));
+        g.setCornerRadius(26f);
+        if (corBorda != null) g.setStroke(2, Color.parseColor(corBorda));
+        b.setBackground(g);
+        return b;
     }
 
     private Button navButton(String rotulo) {
