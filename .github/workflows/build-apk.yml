@@ -43,8 +43,12 @@ jobs:
           cp index.html www/
           cp style.css  www/
           cp -r js       www/
-          # ponte do navegador embutido (só ativa dentro do APK)
-          cp js-theater/theater.js www/js/ 2>/dev/null || true
+          # confere que a ponte do navegador embutido foi junto
+          if [ -f www/js/theater.js ]; then
+            echo "navegador embutido: theater.js incluído"
+          else
+            echo "AVISO: js/theater.js não está no repositório — o botão do navegador vai avisar que o plugin falta"
+          fi
           # se você tiver imagens/fontes locais, acrescente aqui. Ex:
           # cp -r assets www/ 2>/dev/null || true
 
@@ -109,6 +113,17 @@ jobs:
       # senão seriam apagados.
       - name: Instalar o plugin do navegador embutido
         run: |
+          # Falha cedo e com mensagem clara se os arquivos nativos não estiverem
+          # no repositório — antes isso passava batido e o APK saía sem o
+          # navegador, sem nenhum aviso.
+          faltando=0
+          for f in native/TheaterPlugin.java native/MainActivity.java native/patch_android.py; do
+            if [ ! -f "$f" ]; then echo "FALTANDO: $f"; faltando=1; fi
+          done
+          if [ "$faltando" = "1" ]; then
+            echo "::error::Arquivos do navegador embutido ausentes. Crie-os no repositório."
+            exit 1
+          fi
           python3 native/patch_android.py
           npx cap sync android
 
