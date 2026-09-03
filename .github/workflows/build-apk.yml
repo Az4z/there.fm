@@ -136,6 +136,16 @@ jobs:
             echo "::error::Arquivos do navegador embutido ausentes. Crie-os no repositório."
             exit 1
           fi
+          # Confere se o plugin no repositório é a versão nova. Já aconteceu de o
+          # JavaScript ser atualizado e o Java não, gerando um APK que detecta o
+          # vídeo mas não consegue encaixá-lo no card — sem nenhum aviso.
+          if grep -q "public void setBounds" native/TheaterPlugin.java; then
+            echo "plugin: versão 2 (vídeo no card disponível)"
+          else
+            echo "::error::native/TheaterPlugin.java está desatualizado — falta setBounds/isolate. Atualize o arquivo no repositório."
+            exit 1
+          fi
+
           python3 native/patch_android.py
           npx cap sync android
 
