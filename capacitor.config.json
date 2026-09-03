@@ -1,0 +1,11 @@
+{
+  "appId": "fm.there.app",
+  "appName": "there.fm",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
