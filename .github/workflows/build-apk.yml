@@ -59,6 +59,30 @@ jobs:
       # Gera o ícone em TODOS os tamanhos que o Android exige, a partir de uma
       # imagem só (assets/icon.png). Se você não enviar a imagem, o build segue
       # normalmente com o ícone padrão do Capacitor.
+      # Cria UMA VEZ a chave de assinatura e a guarda no repositório. Sem isso,
+      # cada build sai com uma assinatura diferente e o Android recusa instalar a
+      # atualização por cima da versão anterior ("App not installed").
+      - name: Preparar assinatura fixa
+        run: |
+          if [ ! -f keystore/there.jks ]; then
+            echo "gerando a chave de assinatura (só acontece nesta primeira vez)..."
+            mkdir -p keystore
+            keytool -genkeypair -v \
+              -keystore keystore/there.jks \
+              -alias there -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass therefm -keypass therefm \
+              -dname "CN=there.fm, OU=app, O=there.fm, L=-, S=-, C=BR"
+
+            git config user.name  "github-actions"
+            git config user.email "github-actions@github.com"
+            git add -f keystore/there.jks
+            git commit -m "Adiciona chave de assinatura do app"
+            git push
+            echo "chave criada e salva no repositório"
+          else
+            echo "chave de assinatura já existe"
+          fi
+
       - name: Gerar ícone do app
         env:
           # Para trocar o ícone depois, é só mudar este endereço — ou enviar um
