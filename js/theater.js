@@ -26,7 +26,8 @@ function initTheater(){
   if(!theaterAvailable()) return false;
   if(Theater) return true;
   try{
-    Theater = window.Capacitor.registerPlugin('Theater');
+    Theater = pegarPlugin();
+    if(!Theater) return false;
     // estado do vídeo chegando da página aberta, a cada meio segundo
     Theater.addListener('videoState', ({state})=>{
       try{
@@ -48,17 +49,26 @@ function initTheater(){
    Antes o botão ficava escondido quando algo dava errado, e não havia como
    saber se o problema era estar no site, o plugin não ter entrado no APK,
    ou outra coisa. */
-function theaterDiagnostico(){
-  if(!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()))
-    return 'Você está no site pelo navegador. Esta função só existe no aplicativo (APK).';
-  if(!(window.Capacitor.registerPlugin))
-    return 'Versão do Capacitor incompatível no APK.';
-  try{
-    const p=window.Capacitor.registerPlugin('Theater');
-    if(!p) return 'O plugin não foi encontrado no APK.';
-  }catch(e){
-    return 'O plugin não foi incluído no APK. Confira se native/TheaterPlugin.java e native/MainActivity.java estão no repositório.';
+/* Obtém o plugin por dois caminhos.
+   1) registerPlugin — vem da biblioteca JavaScript do Capacitor.
+   2) Capacitor.Plugins.Theater — exposto pela parte NATIVA, funciona mesmo
+      se a biblioteca não tiver sido carregada.
+   O segundo existe justamente porque o primeiro falhou antes: eu instalava o
+   pacote no build mas não levava o arquivo JavaScript para dentro do app. */
+function pegarPlugin(){
+  const C=window.Capacitor; if(!C) return null;
+  if(typeof C.registerPlugin==='function'){
+    try{ const p=C.registerPlugin('Theater'); if(p) return p; }catch(e){}
   }
+  if(C.Plugins && C.Plugins.Theater) return C.Plugins.Theater;
+  return null;
+}
+function theaterDiagnostico(){
+  const C=window.Capacitor;
+  if(!(C && C.isNativePlatform && C.isNativePlatform()))
+    return 'Você está no site pelo navegador. Esta função só existe no aplicativo (APK).';
+  if(!pegarPlugin())
+    return 'O plugin não foi encontrado no APK. Confira se native/TheaterPlugin.java e native/MainActivity.java estão no repositório e refaça o build.';
   return null;
 }
 async function openTheater(url){
