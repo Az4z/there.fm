@@ -43,6 +43,8 @@ jobs:
           cp index.html www/
           cp style.css  www/
           cp -r js       www/
+          # ponte do navegador embutido (só ativa dentro do APK)
+          cp js-theater/theater.js www/js/ 2>/dev/null || true
           # se você tiver imagens/fontes locais, acrescente aqui. Ex:
           # cp -r assets www/ 2>/dev/null || true
 
@@ -53,6 +55,29 @@ jobs:
       - name: Montar o projeto Android
         run: |
           npx cap add android
+
+      # Gera o ícone em TODOS os tamanhos que o Android exige, a partir de uma
+      # imagem só (assets/icon.png). Se você não enviar a imagem, o build segue
+      # normalmente com o ícone padrão do Capacitor.
+      - name: Gerar ícone do app
+        run: |
+          if [ -f assets/icon.png ]; then
+            npm install --no-save @capacitor/assets
+            npx capacitor-assets generate --android
+            echo "ícone personalizado aplicado"
+          else
+            echo "assets/icon.png não encontrado — usando ícone padrão"
+          fi
+
+      # O 'cap add android' regenera a pasta android/ do zero a cada build, então
+      # o plugin nativo e as permissões precisam ser aplicados DEPOIS dele —
+      # senão seriam apagados.
+      # O 'cap add android' regenera a pasta android/ do zero a cada build, então
+      # o plugin nativo e as permissões precisam ser aplicados DEPOIS dele —
+      # senão seriam apagados.
+      - name: Instalar o plugin do navegador embutido
+        run: |
+          python3 native/patch_android.py
           npx cap sync android
 
       - name: Compilar o APK
