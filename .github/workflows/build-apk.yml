@@ -1,0 +1,79 @@
+name: Gerar APK
+
+# Roda quando você aperta o botão na aba Actions, e também a cada push na main.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Preparar Android SDK
+        uses: android-actions/setup-android@v3
+
+      # O Capacitor copia os arquivos do site a partir de uma pasta só dele.
+      # Sem isso ele tentaria copiar o repositório inteiro (incluindo node_modules
+      # e a própria pasta android), o que quebra o build.
+      - name: Separar os arquivos do site
+        run: |
+          mkdir -p www
+          cp index.html www/
+          cp style.css  www/
+          cp -r js       www/
+          # se você tiver imagens/fontes locais, acrescente aqui. Ex:
+          # cp -r assets www/ 2>/dev/null || true
+
+      - name: Instalar o Capacitor
+        run: |
+          npm install @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+
+      - name: Montar o projeto Android
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Compilar o APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Renomear o arquivo
+        run: |
+          mkdir -p saida
+          cp android/app/build/outputs/apk/debug/app-debug.apk saida/there-fm.apk
+
+      # Fica guardado na aba Actions (vem dentro de um .zip)
+      - name: Guardar o APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: there-fm-apk
+          path: saida/there-fm.apk
+
+      # Publica também como Release — este é o jeito fácil de baixar no celular,
+      # porque vira um link direto para o .apk, sem precisar descompactar nada.
+      - name: Publicar para download direto
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: there.fm APK ${{ github.run_number }}
+          files: saida/there-fm.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
