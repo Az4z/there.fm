@@ -21,28 +21,60 @@ def baixar(url, destino):
         f.write(r.read())
 
 def preparar(origem, destino):
+    """
+    PREENCHE o quadrado com a imagem, cortando o excesso.
+
+    Antes eu fazia o contrário: encaixava a imagem inteira dentro do quadrado,
+    o que deixava barras pretas em cima e embaixo numa foto horizontal — o ícone
+    ficava com a foto espremida numa faixa. Para ícone, o certo é preencher:
+    a imagem cobre todo o quadrado e o que sobra nas laterais é cortado,
+    mantendo a proporção original (nada é esticado).
+    """
     from PIL import Image
-    img = Image.open(origem).convert('RGBA')
+    img = Image.open(origem).convert('RGB')
     largura, altura = img.size
 
-    # escala para caber inteira no quadrado, mantendo a proporção
-    escala = min(LADO / largura, LADO / altura)
-    nova = (max(1, round(largura * escala)), max(1, round(altura * escala)))
+    # max (e não min): garante que a imagem cubra o quadrado inteiro
+    escala = max(LADO / largura, LADO / altura)
+    nova = (max(LADO, round(largura * escala)), max(LADO, round(altura * escala)))
     img = img.resize(nova, Image.LANCZOS)
 
-    fundo = Image.new('RGBA', (LADO, LADO), FUNDO)
-    fundo.paste(img, ((LADO - nova[0]) // 2, (LADO - nova[1]) // 2), img)
-    fundo.convert('RGB').save(destino, 'PNG')
-    print('ícone pronto: %dx%d (original era %dx%d)' % (LADO, LADO, largura, altura))
+    # recorta o centro — é onde quase sempre está o assunto da foto
+    esq = (nova[0] - LADO) // 2
+    topo = (nova[1] - LADO) // 2
+    img = img.crop((esq, topo, esq + LADO, topo + LADO))
+    img.save(destino, 'PNG')
+    print('ícone pronto: %dx%d preenchido (original era %dx%d)' % (LADO, LADO, largura, altura))
+
+def achar_imagem_local():
+    """
+    Procura qualquer imagem dentro de assets/, com qualquer nome.
+
+    Isso existe porque, pelo celular, o GitHub não deixa renomear o arquivo na
+    hora de enviar nem depois (imagens não são editáveis pela web). Exigir o nome
+    exato 'icon.png' tornaria o envio quase impossível sem um computador.
+    Se houver mais de uma imagem, a que se chamar 'icon' tem preferência.
+    """
+    if not os.path.isdir('assets'):
+        return None
+    validas = ('.png', '.jpg', '.jpeg', '.webp', '.bmp')
+    achadas = [f for f in sorted(os.listdir('assets'))
+               if f.lower().endswith(validas)]
+    if not achadas:
+        return None
+    preferida = [f for f in achadas if os.path.splitext(f)[0].lower() == 'icon']
+    escolhida = (preferida or achadas)[0]
+    print('imagem encontrada em assets/:', escolhida)
+    return os.path.join('assets', escolhida)
 
 if __name__ == '__main__':
     url = os.environ.get('ICON_URL', '').strip()
     os.makedirs('assets', exist_ok=True)
 
-    # um arquivo enviado ao repositório tem prioridade sobre a URL
-    if os.path.exists(ORIGEM):
-        entrada = ORIGEM
-        print('usando assets/icon.png do repositório')
+    # uma imagem enviada ao repositório tem prioridade sobre a URL
+    local = achar_imagem_local()
+    if local:
+        entrada = local
     elif url:
         entrada = '/tmp/icone-original'
         try:
@@ -56,6 +88,8 @@ if __name__ == '__main__':
         sys.exit(0)
 
     try:
+        # lê de onde estiver, mas grava sempre como assets/icon.png,
+        # que é o nome que o gerador de ícones do Android espera
         preparar(entrada, ORIGEM)
     except Exception as e:
         print('não consegui preparar a imagem:', e)

@@ -32,6 +32,39 @@ def adicionar_dependencia():
     with open(GRADLE, 'w') as f: f.write(s)
     print('dependência androidx.webkit adicionada')
 
+def configurar_assinatura():
+    """
+    Faz o app ser assinado SEMPRE com a mesma chave.
+
+    Sem isto, cada build gera uma assinatura diferente e o Android recusa
+    instalar a nova versão por cima da anterior ("App not installed"), porque
+    trata assinaturas distintas como apps de origens distintas. Com uma chave
+    fixa, atualizar passa a funcionar normalmente e seus dados são mantidos.
+    """
+    ks = 'keystore/there.jks'
+    if not os.path.exists(ks):
+        print('sem keystore — build sairá com assinatura temporária'); return
+    with open(GRADLE) as f: s = f.read()
+    if 'thereSigning' in s:
+        print('assinatura já configurada'); return
+
+    bloco = """
+    signingConfigs {
+        thereSigning {
+            storeFile file('../../keystore/there.jks')
+            storePassword 'therefm'
+            keyAlias 'there'
+            keyPassword 'therefm'
+        }
+    }
+"""
+    s = s.replace('android {', 'android {' + bloco, 1)
+    # aplica a chave fixa também na variante de depuração, que é a que geramos
+    s = s.replace('buildTypes {',
+                  "buildTypes {\n        debug { signingConfig signingConfigs.thereSigning }", 1)
+    with open(GRADLE, 'w') as f: f.write(s)
+    print('assinatura fixa configurada')
+
 def adicionar_permissoes():
     with open(MANIFEST) as f: s = f.read()
     perms = [
@@ -52,5 +85,6 @@ def adicionar_permissoes():
 if __name__ == '__main__':
     copiar_plugin()
     adicionar_dependencia()
+    configurar_assinatura()
     adicionar_permissoes()
     print('projeto Android preparado')
