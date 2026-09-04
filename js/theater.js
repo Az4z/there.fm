@@ -16,7 +16,8 @@
 let Theater = null;
 let theaterState = { found:false, t:0, p:false, d:0, title:'', url:'' };
 let theaterUid = null;
-let _ultimoAchado = 0;   // quando vimos um vídeo pela última vez (para a carência)          // id do card que está usando o navegador
+let _ultimoAchado = 0;
+let theaterPageUrl = '';   // endereço da PÁGINA (o que é compartilhado)   // quando vimos um vídeo pela última vez (para a carência)          // id do card que está usando o navegador
 let theaterItemId = null;
 
 /* Só existe dentro do app. No site, `Capacitor` não está definido. */
@@ -47,18 +48,15 @@ function initTheater(){
       }catch(e){}
     });
     // botões da barra do navegador
-    Theater.addListener('captured',()=>{
-      ensureTheaterCard();
-      setTimeout(entrarModoCard,120);   // espera o card existir no layout
-      anunciarTheater(theaterState.url);   // manda todos abrirem a mesma página
-      toast('Vídeo capturado · sincronizado com a sala');
-    });
-    Theater.addListener('backToRoom',()=>{
-      ensureTheaterCard();
-      setTimeout(entrarModoCard,120);
-    });
+    Theater.addListener('captured',()=>{ iniciarSessaoTheater(true); });
+    Theater.addListener('backToRoom',()=>{ iniciarSessaoTheater(false); });
     Theater.addListener('pageChanged', ({url,title})=>{
-      theaterState.url=url; theaterState.title=title;
+      /* Guardamos a URL DA PÁGINA separada da que o detector reporta.
+         Quando o vídeo está dentro de um quadro (caso do TokyVideo), o detector
+         informa o endereço do quadro — abrir aquilo no aparelho dos outros não
+         reproduz a página. Para compartilhar, o certo é sempre a página. */
+      theaterPageUrl = url || theaterPageUrl;
+      theaterState.title = title || theaterState.title;
     });
     Theater.addListener('theaterClosed', ()=>{ /* janela escondida; vídeo segue tocando */ });
     verificarVersaoPlugin();
@@ -127,73 +125,119 @@ async function openTheater(url){
 }
 
 /* ══════════════════════════════════════════════════════════════════
-   ASSISTIR JUNTO DE OUTROS SITES — como funciona de verdade
+   SESSÃO DO NAVEGADOR — reestruturado.
 
-   Um detalhe importante que eu não tinha resolvido: o navegador embutido roda
-   NO SEU APARELHO. Não existe como transmitir a imagem dele para os outros —
-   isso exigiria retransmitir vídeo, coisa que consumiria muita banda e um
-   servidor dedicado.
+   O que estava quebrado, e por quê:
 
-   O caminho que funciona (e é o mesmo que apps de assistir junto usam): cada
-   pessoa abre a MESMA página no próprio aparelho, e nós sincronizamos a
-   reprodução. Cada um carrega o vídeo da fonte original, e o app mantém todos
-   no mesmo instante.
+   • DOIS CAMINHOS criavam o card (o anúncio genérico de item e o aviso de
+     abertura). Cada um montava um card diferente, com dados diferentes — daí os
+     cards duplicados, vazios ou que não apareciam.
+   • FECHAR não avisava ninguém: eu removia o card só na minha tela, enquanto o
+     navegador da outra pessoa seguia tocando. Era o "fecho e ela continua
+     assistindo".
+   • O endereço compartilhado era o do QUADRO INTERNO, não o da página. No
+     TokyVideo o vídeo vive dentro de um quadro, então os outros recebiam um
+     endereço que não abre nada sozinho.
 
-   Por isso, ao capturar um vídeo, o endereço é enviado para a sala: quem
-   estiver no aplicativo abre a mesma página automaticamente; quem estiver pelo
-   navegador comum recebe um aviso de que precisa do aplicativo.
+   Agora existe UMA sessão, com um estado só, e três mensagens claras:
+   abrir, atualizar e fechar. Todo mundo entra e sai junto.
    ══════════════════════════════════════════════════════════════════ */
-function anunciarTheater(url){
-  if(!room||!url) return;
-  broadcast({ type:'THEATER_OPEN', url, itemId:theaterItemId, uid:U.id });
+let sessaoTheater = null;   // {itemId, url, host} — igual para todos na sala
+
+/* Entra na sessão. `anunciar` distingue quem capturou (avisa a sala) de quem só
+   voltou para a sala (não reanuncia, para não criar sessão duplicada). */
+function iniciarSessaoTheater(anunciar){
+  const url = theaterPageUrl || theaterState.url || '';
+  if(!sessaoTheater){
+    sessaoTheater = { itemId:'thr_'+Date.now(), url, host:U.id };
+  }else if(url){
+    sessaoTheater.url = url;
+  }
+  ensureTheaterCard(sessaoTheater.itemId);
+  aguardarLayoutEEncaixar();
+  if(anunciar && room){
+    broadcast({ type:'THEATER_OPEN', itemId:sessaoTheater.itemId,
+                url:sessaoTheater.url, host:U.id, uid:U.id });
+    toast('Vídeo capturado · todos vão abrir a mesma página');
+  }
 }
-/* Chamado quando OUTRA pessoa capturou um vídeo: abre a mesma página aqui. */
-async function abrirTheaterRemoto(url,itemId){
-  if(!url) return;
+/* Espera o card existir e ter tamanho antes de encaixar o vídeo nele.
+   Antes eu usava um tempo fixo de 120ms — quando o aparelho demorava um pouco
+   mais para desenhar, o encaixe falhava calado e o vídeo ficava tocando atrás. */
+function aguardarLayoutEEncaixar(tentativa){
+  tentativa=tentativa||0;
+  if(tentativa>25) return;                       // ~4s no total
+  const a=areaDoCard();
+  if(a && a.w>40 && a.h>40){ entrarModoCard(); return; }
+  setTimeout(()=>aguardarLayoutEEncaixar(tentativa+1),150);
+}
+
+/* Outra pessoa abriu: abro a mesma página aqui e crio o mesmo card. */
+async function abrirTheaterRemoto(url,itemId,host){
+  if(!itemId) return;
+  sessaoTheater = { itemId, url:url||'', host:host||null };
+  ensureTheaterCard(itemId);              // o card existe para todos, com ou sem app
   if(!theaterAvailable()){
-    toast('Alguém está assistindo em outro site. Abra pelo aplicativo para acompanhar.','err');
+    marcarCardSemApp(itemId);
     return;
   }
   if(!initTheater()) return;
+  if(!url){ marcarCardSemApp(itemId); return; }
   try{
     await Theater.open({ url });
-    ensureTheaterCard();
-    // o outro é o relógio da sessão; eu apenas sigo
-    if(theaterUid) setSyncHost(theaterUid, 'remoto');
-    setTimeout(entrarModoCard,150);
+    if(theaterUid) setSyncHost(theaterUid, host || 'remoto');   // quem abriu é o relógio
+    aguardarLayoutEEncaixar();
     toast('Abrindo o mesmo vídeo · sincronizado');
-  }catch(e){ console.error('abrirTheaterRemoto',e); }
+  }catch(e){
+    console.error('abrirTheaterRemoto',e);
+    marcarCardSemApp(itemId);
+  }
 }
-/* Card do navegador para quem NÃO abriu: mostra o que está tocando e um botão
-   para abrir a mesma página. Sem isto, o card não existia para os outros. */
-function criarCardTheaterRemoto(itemId,url,x,y){
-  if(qs('[data-item-id="'+itemId+'"]')) return;
-  const c=$('items');
-  const w=document.createElement('div');
-  w.className='card vid-card'; w.dataset.type='theater'; w.dataset.itemId=itemId;
-  w.dataset.url=url||'';
-  Object.assign(w.style,{position:'absolute',left:(x||80)+'px',top:(y||80)+'px',
-    zIndex:++zTop,width:VID_W+'px',height:(HEAD+120+CTRL)+'px',display:'flex',flexDirection:'column'});
-  w.innerHTML=`<div class="ch" style="height:${HEAD}px;flex-shrink:0">
-      <span class="ct">▶ Navegador</span>
-      <div style="display:flex;align-items:center;gap:.38rem">
-        <span class="vsync">SYNC</span>
-        <button class="cx" onclick="removeEl(this.closest('.card'))">×</button>
-      </div>
-    </div>
-    <div class="theater-body">
-      <div class="theater-title">Assistindo em outro site</div>
-      <div class="theater-sub">Abra a mesma página para acompanhar</div>
-      <button class="btn bp bsm" onclick="abrirTheaterRemoto('${(url||'').replace(/'/g,"\\'")}','${itemId}')" style="margin-top:.5rem">Assistir junto</button>
-    </div>`;
-  const rzh=document.createElement('div'); rzh.className='rzh'; w.appendChild(rzh);
-  c.appendChild(w); els.push(w);
+/* Quem está pelo navegador comum vê o card com a explicação e um link. */
+function marcarCardSemApp(itemId){
+  const card=qs('[data-item-id="'+itemId+'"]'); if(!card) return;
+  const t=card.querySelector('.theater-title');
+  const s=card.querySelector('.theater-sub');
+  if(t) t.textContent='Assistindo em outro site';
+  if(s) s.innerHTML=(sessaoTheater&&sessaoTheater.url)
+      ? `<a href="${sessaoTheater.url}" target="_blank" rel="noopener" style="color:var(--green);text-decoration:underline">abrir a página</a> · sincroniza no aplicativo`
+      : 'abra pelo aplicativo para acompanhar';
 }
+
+/* FECHAR — agora encerra para TODOS. */
+async function encerrarSessaoTheater(anunciar){
+  const itemId = sessaoTheater ? sessaoTheater.itemId : theaterItemId;
+  if(anunciar && room && itemId) broadcast({ type:'THEATER_CLOSE', itemId, uid:U.id });
+  await fecharTheaterLocal(itemId);
+}
+/* Fecha só do meu lado (usado por mim e ao receber o aviso de outra pessoa). */
+async function fecharTheaterLocal(itemId){
+  try{
+    if(Theater){ await sairModoCard(); await Theater.close(); }
+  }catch(e){}
+  if(window.__thrObs){ clearInterval(window.__thrObs); window.__thrObs=null; }
+  const alvo = itemId || (sessaoTheater&&sessaoTheater.itemId) || theaterItemId;
+  const card = alvo ? qs('[data-item-id="'+alvo+'"]') : null;
+  if(card){ card.remove(); els=els.filter(e=>e!==card); }
+  if(theaterUid){ delete ytPlrs[theaterUid]; delete desiredPlaying[theaterUid]; }
+  theaterUid=null; theaterItemId=null; sessaoTheater=null;
+  theaterState={found:false,t:0,p:false,d:0,title:'',url:''};
+  _modoCard=false;
+}
+/* Recebido quando outra pessoa fecha. Devolve a promessa para quem chamar poder
+   esperar o fechamento terminar de fato. */
+function fecharTheaterRemoto(itemId){ return fecharTheaterLocal(itemId); }
+
 /* Cria (uma vez) o card na sala que representa o vídeo do navegador, e o
    registra como player para a sincronia enxergar. */
-function ensureTheaterCard(){
-  if(theaterUid && qs('[data-ytuid="'+theaterUid+'"]')) return;
-  const c=$('items'), id='thr_'+Date.now();
+/* Cria o card UMA vez, sempre com o MESMO id em todos os aparelhos — é isso que
+   permite fechar, mover e remover de forma coordenada. Antes cada lado gerava um
+   id próprio, então uma ponta não sabia qual card a outra estava fechando. */
+function ensureTheaterCard(idSessao){
+  const id = idSessao || (sessaoTheater && sessaoTheater.itemId) || ('thr_'+Date.now());
+  const jaExiste = qs('[data-item-id="'+id+'"]');
+  if(jaExiste){ theaterItemId=id; theaterUid=jaExiste.dataset.ytuid||('ytp_'+id); return; }
+  const c=$('items');
   theaterItemId=id;
   theaterUid='ytp_'+id;
 
@@ -206,7 +250,7 @@ function ensureTheaterCard(){
       <span class="ct">▶ Navegador</span>
       <div style="display:flex;align-items:center;gap:.38rem">
         <span class="vsync">SYNC</span>
-        <button class="cx" onclick="closeTheaterCard()">×</button>
+        <button class="cx" onclick="encerrarSessaoTheater(true)">×</button>
       </div>
     </div>
     <div class="theater-body" id="thr-body-${theaterUid}">
@@ -242,7 +286,9 @@ function ensureTheaterCard(){
   applyVolumeToPlayer(theaterUid);
 
   // avisa os outros que existe um card de navegador na sala
-  broadcast({type:'ADD_ITEM',item:{type:'theater',x:80,y:80,id,url:theaterState.url||''}});
+  /* Não anunciamos ADD_ITEM aqui: quem cria o card nos outros aparelhos é a
+     mensagem THEATER_OPEN. Ter dois caminhos criando card era a origem dos
+     cards duplicados e dos cards vazios. */
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -319,16 +365,7 @@ async function showTheater(){
   Theater.show();
 }
 function hideTheater(){ if(Theater) Theater.hide(); }
-async function closeTheaterCard(){
-  if(Theater){ await sairModoCard(); await Theater.close(); }
-  if(window.__thrObs){ clearInterval(window.__thrObs); window.__thrObs=null; }
-  const card=qs('[data-ytuid="'+theaterUid+'"]');
-  if(card){ card.remove(); els=els.filter(e=>e!==card); }
-  if(theaterItemId) broadcast({type:'REMOVE_ITEM',itemId:theaterItemId});
-  delete ytPlrs[theaterUid];
-  theaterUid=null; theaterItemId=null;
-  theaterState={found:false,t:0,p:false,d:0,title:'',url:''};
-}
+async function closeTheaterCard(){ await encerrarSessaoTheater(true); }
 
 /* Botão na barra da sala — só aparece quando rodando como app. */
 /* O botão fica sempre visível: se a função não estiver disponível, ele explica

@@ -444,7 +444,8 @@ function handleMsg(msg){
     case 'VID_SYNC':    applyVS(msg.uid_player,msg.action,msg.time,msg.at); break;
     case 'MEDIA_SWITCH':      applyMediaSwitch(msg.itemId,msg.kind,msg.source,msg.uid); break;
     case 'VID_TICK':          applyVidTick(msg.uid_player,msg.time,msg.playing,msg.at); break;
-    case 'THEATER_OPEN':      if(typeof abrirTheaterRemoto==='function') abrirTheaterRemoto(msg.url,msg.itemId); break;
+    case 'THEATER_OPEN':      if(typeof abrirTheaterRemoto==='function') abrirTheaterRemoto(msg.url,msg.itemId,msg.host); break;
+    case 'THEATER_CLOSE':     if(typeof fecharTheaterRemoto==='function') fecharTheaterRemoto(msg.itemId); break;
     case 'MEDIA_SWITCH_MUSIC':applyMusicSwitch(msg.itemId,msg.vid,msg.title,msg.artist,msg.thumb); break;
     case 'DRAW_STROKE': applyDS(msg); break;
     case 'DRAW_CLEAR':  $('drawCanvas').getContext('2d').clearRect(0,0,$('drawCanvas').width,$('drawCanvas').height); break;
@@ -536,14 +537,11 @@ function createItemFromData(item,c){
   else if(item.type==='video'){ mkMediaVid(item.kind||'youtube',item.source||item.vid,item.x,item.y,item.id,c,false); activeVideoCardId=item.id; }
   else if(item.type==='iframe') mkGenericIframe(item.embedUrl,item.x,item.y,item.id,c,false);
   else if(item.type==='music'){ mkMusicCard(item.vid,item.title||'Música',item.artist||'',item.thumb||'',item.x,item.y,item.id,c,false); activeMusicCardId=item.id; }
-  else if(item.type==='theater'){
-    /* Card do navegador embutido. FALTAVA ESTE CASO: o card era anunciado para a
-       sala mas ninguém sabia como reconstruí-lo, então só aparecia para quem
-       abriu. Agora todos veem o card; quem estiver no aplicativo ainda recebe o
-       endereço e abre a mesma página (ver THEATER_OPEN). */
-    if(typeof criarCardTheaterRemoto==='function')
-      criarCardTheaterRemoto(item.id,item.url||'',item.x,item.y);
-  }
+  /* O card do navegador NÃO é criado por aqui de propósito: quem cuida disso é
+     a mensagem THEATER_OPEN, que traz o endereço da página e quem é o relógio da
+     sessão. Ter dois caminhos criando o mesmo card gerava cards duplicados e
+     cards vazios (sem endereço), além de deixar cada lado com um id diferente —
+     por isso fechar de um lado não fechava do outro. */
 }
 function applyState(msg){
   const c=$('items');
