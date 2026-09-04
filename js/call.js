@@ -96,7 +96,9 @@ function tuneOpusSdp(sdp){
 function createCallPeerConnection(uid){
   const pc=new RTCPeerConnection({
     iceServers:CALL_ICE_SERVERS,
-    iceCandidatePoolSize:4        // pré-coleta candidatos: conecta mais rápido
+    iceCandidatePoolSize:4,       // pré-coleta candidatos: conecta mais rápido
+    bundlePolicy:'max-bundle',    // um só canal de rede: menos negociação, conecta antes
+    rtcpMuxPolicy:'require'
   });
   const entry={pc,audioEl:null,analyser:null,pendingCandidates:[],
                polite:(U.id>uid),   // regra de cortesia (ver handleCallOffer)
@@ -116,6 +118,10 @@ function createCallPeerConnection(uid){
     });
   }
 
+  /* Envia cada candidato assim que ele aparece, em vez de esperar todos.
+     Como os servidores de retransmissão demoram mais a responder, aguardar a
+     lista completa atrasava a conexão vários segundos sem necessidade — os
+     candidatos locais, que costumam bastar, já teriam conectado. */
   pc.onicecandidate=e=>{ if(e.candidate)broadcast({type:'CALL_ICE',uid:U.id,to:uid,candidate:e.candidate}); };
 
   /* Renegocia sozinho quando o navegador pede (troca de trilha, reinício de ICE).

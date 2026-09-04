@@ -116,8 +116,12 @@ async function openTheater(url){
   if(!initTheater()){ toast('Não consegui iniciar o navegador embutido','err'); return; }
   if(!room){ toast('Entre em uma sala primeiro','err'); return; }
   try{
+    /* NÃO criar card aqui. Era esta linha que gerava os cards infinitos:
+       abrir o navegador criava um card novo toda vez, e depois de fechar a
+       sessão o identificador mudava — os cards antigos ficavam órfãos, sem
+       ninguém capaz de fechá-los. O card agora nasce apenas quando existe um
+       vídeo de fato (ao capturar ou ao voltar para a sala com vídeo tocando). */
     await Theater.open({ url: url || 'https://www.google.com' });
-    ensureTheaterCard();
   }catch(e){
     console.error('[navegador] falha ao abrir',e);
     toast('Falha ao abrir o navegador: '+(e.message||e),'err');
@@ -166,12 +170,42 @@ function iniciarSessaoTheater(anunciar){
    mais para desenhar, o encaixe falhava calado e o vídeo ficava tocando atrás. */
 function aguardarLayoutEEncaixar(tentativa){
   tentativa=tentativa||0;
-  if(tentativa>25) return;                       // ~4s no total
   const a=areaDoCard();
   if(a && a.w>40 && a.h>40){ entrarModoCard(); return; }
+  if(tentativa>25){
+    /* DESISTIU de encaixar (~4s). Antes eu simplesmente parava aqui — e o
+       navegador ficava em TELA CHEIA cobrindo a sala inteira, dando a impressão
+       de "só aparece a página, sem card". Agora escondemos o navegador: o vídeo
+       continua tocando e sincronizado, e o card fica acessível com um botão para
+       reabrir a janela. */
+    if(Theater){ try{ Theater.hide(); }catch(e){} }
+    const card=qs('[data-ytuid="'+theaterUid+'"]');
+    if(card){
+      const s=card.querySelector('.theater-sub');
+      if(s) s.textContent='tocando · toque em Abrir navegador para ver';
+    }
+    toast('Vídeo tocando em segundo plano — toque em "Abrir navegador" no card');
+    return;
+  }
   setTimeout(()=>aguardarLayoutEEncaixar(tentativa+1),150);
 }
 
+/* Aguarda a página carregar e o vídeo aparecer, e só então encaixa no card.
+   Sem isso, o encaixe era tentado com a página ainda em branco. */
+function esperarVideoEEncaixar(tentativa){
+  tentativa=tentativa||0;
+  if(theaterState.found){ aguardarLayoutEEncaixar(); return; }
+  if(tentativa>40){                     // ~12s: página lenta ou sem vídeo
+    if(Theater){ try{ Theater.hide(); }catch(e){} }
+    const card=qs('[data-ytuid="'+theaterUid+'"]');
+    if(card){
+      const s=card.querySelector('.theater-sub');
+      if(s) s.textContent='não encontrei o vídeo — toque em Abrir navegador';
+    }
+    return;
+  }
+  setTimeout(()=>esperarVideoEEncaixar(tentativa+1),300);
+}
 /* Outra pessoa abriu: abro a mesma página aqui e crio o mesmo card. */
 async function abrirTheaterRemoto(url,itemId,host){
   if(!itemId) return;
@@ -186,7 +220,9 @@ async function abrirTheaterRemoto(url,itemId,host){
   try{
     await Theater.open({ url });
     if(theaterUid) setSyncHost(theaterUid, host || 'remoto');   // quem abriu é o relógio
-    aguardarLayoutEEncaixar();
+    /* Espera o vídeo ser detectado antes de encaixar: abrir a página leva alguns
+       segundos e, sem essa espera, o encaixe acontecia antes de existir vídeo. */
+    esperarVideoEEncaixar();
     toast('Abrindo o mesmo vídeo · sincronizado');
   }catch(e){
     console.error('abrirTheaterRemoto',e);
@@ -205,8 +241,8 @@ function marcarCardSemApp(itemId){
 }
 
 /* FECHAR — agora encerra para TODOS. */
-async function encerrarSessaoTheater(anunciar){
-  const itemId = sessaoTheater ? sessaoTheater.itemId : theaterItemId;
+async function encerrarSessaoTheater(anunciar,idDoBotao){
+  const itemId = idDoBotao || (sessaoTheater ? sessaoTheater.itemId : theaterItemId);
   if(anunciar && room && itemId) broadcast({ type:'THEATER_CLOSE', itemId, uid:U.id });
   await fecharTheaterLocal(itemId);
 }
@@ -216,9 +252,12 @@ async function fecharTheaterLocal(itemId){
     if(Theater){ await sairModoCard(); await Theater.close(); }
   }catch(e){}
   if(window.__thrObs){ clearInterval(window.__thrObs); window.__thrObs=null; }
-  const alvo = itemId || (sessaoTheater&&sessaoTheater.itemId) || theaterItemId;
-  const card = alvo ? qs('[data-item-id="'+alvo+'"]') : null;
-  if(card){ card.remove(); els=els.filter(e=>e!==card); }
+  /* Remove TODOS os cards de navegador, não apenas o da sessão conhecida.
+     Se por qualquer motivo tiver sobrado algum órfão, ele sai junto — assim o
+     botão de fechar sempre limpa a tela de verdade. */
+  document.querySelectorAll('.card[data-type="theater"]').forEach(el=>{
+    el.remove(); els=els.filter(e=>e!==el);
+  });
   if(theaterUid){ delete ytPlrs[theaterUid]; delete desiredPlaying[theaterUid]; }
   theaterUid=null; theaterItemId=null; sessaoTheater=null;
   theaterState={found:false,t:0,p:false,d:0,title:'',url:''};
@@ -235,6 +274,12 @@ function fecharTheaterRemoto(itemId){ return fecharTheaterLocal(itemId); }
    id próprio, então uma ponta não sabia qual card a outra estava fechando. */
 function ensureTheaterCard(idSessao){
   const id = idSessao || (sessaoTheater && sessaoTheater.itemId) || ('thr_'+Date.now());
+  /* Varre e remove QUALQUER outro card de navegador antes de criar.
+     Só pode existir um por vez — sem esta limpeza, qualquer caminho que
+     escapasse deixava cards duplicados na tela, sem dono e sem como fechar. */
+  document.querySelectorAll('.card[data-type="theater"]').forEach(el=>{
+    if(el.dataset.itemId!==id){ el.remove(); els=els.filter(e=>e!==el); }
+  });
   const jaExiste = qs('[data-item-id="'+id+'"]');
   if(jaExiste){ theaterItemId=id; theaterUid=jaExiste.dataset.ytuid||('ytp_'+id); return; }
   const c=$('items');
@@ -250,7 +295,7 @@ function ensureTheaterCard(idSessao){
       <span class="ct">▶ Navegador</span>
       <div style="display:flex;align-items:center;gap:.38rem">
         <span class="vsync">SYNC</span>
-        <button class="cx" onclick="encerrarSessaoTheater(true)">×</button>
+        <button class="cx" onclick="encerrarSessaoTheater(true, this.closest('.card').dataset.itemId)">×</button>
       </div>
     </div>
     <div class="theater-body" id="thr-body-${theaterUid}">
@@ -323,6 +368,12 @@ async function entrarModoCard(){
   if(!Theater) return;
   if(_pluginV<2){ avisarPluginAntigo(); return; }
   const a=areaDoCard(); if(!a) return;
+  /* Reaplica o isolamento depois de alguns segundos: anúncios e partes da página
+     costumam carregar atrasados e voltam a cobrir o vídeo. Reaplicar garante que
+     o que fica visível continue sendo o player. */
+  clearTimeout(window.__thrReIso1); clearTimeout(window.__thrReIso2);
+  window.__thrReIso1=setTimeout(()=>{ if(_modoCard&&Theater) Theater.isolate({on:true}).catch(()=>{}); },2500);
+  window.__thrReIso2=setTimeout(()=>{ if(_modoCard&&Theater) Theater.isolate({on:true}).catch(()=>{}); },6000);
   try{
     await Theater.isolate({on:true});     // esconde o resto da página
     await Theater.setBounds(a);           // encaixa o navegador no card
