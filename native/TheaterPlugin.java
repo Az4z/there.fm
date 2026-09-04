@@ -57,6 +57,15 @@ public class TheaterPlugin extends Plugin {
      * topo, que repassa. É assim que o vídeo de um player incorporado passa a
      * ser visto e controlado.
      */
+    /*
+     * Descobre EXATAMENTE de qual quadro veio o vídeo, comparando a janela que
+     * enviou a mensagem com a de cada quadro da página (window.__thrFrame).
+     *
+     * Antes o isolamento pegava o MAIOR quadro da página. Em sites com anúncio
+     * — o TokyVideo entre eles — o maior costuma ser o do anúncio, não o do
+     * vídeo. Era exatamente por isso que na outra pessoa "aparecia só a página
+     * e não o vídeo": isolávamos o quadro errado.
+     */
     private static final String DETECTOR =
         "(function(){" +
         "  if (window.__thrReady) return; window.__thrReady = 1;" +
@@ -89,6 +98,7 @@ public class TheaterPlugin extends Plugin {
         "  window.__thrIsolar = function(on){" +
         "    function alvo(){" +
         "      var v = document.querySelector('video'); if (v) return v;" +
+        "      if (window.__thrFrame && window.__thrFrame.parentElement) return window.__thrFrame;" +
         "      var fs = [].slice.call(document.querySelectorAll('iframe'));" +
         "      fs.sort(function(a,b){ return (b.clientWidth*b.clientHeight)-(a.clientWidth*a.clientHeight); });" +
         "      return fs[0] || null;" +
@@ -136,7 +146,15 @@ public class TheaterPlugin extends Plugin {
         "  var deQuadro = {quando:0, s:null};" +
         "  window.addEventListener('message', function(e){" +
         "    var d = e.data;" +
-        "    if (d && d.__thr === 'state') { deQuadro = {quando: Date.now(), s: d.s}; }" +
+        "    if (d && d.__thr === 'state') {" +
+        "      deQuadro = {quando: Date.now(), s: d.s};" +
+        "      try{" +
+        "        var fs = document.querySelectorAll('iframe');" +
+        "        for (var i=0;i<fs.length;i++){" +
+        "          if (fs[i].contentWindow === e.source) { window.__thrFrame = fs[i]; break; }" +
+        "        }" +
+        "      }catch(err){}" +
+        "    }" +
         "  });" +
         "  function paraQuadros(cmd, val){" +
         "    var fs = document.querySelectorAll('iframe');" +
