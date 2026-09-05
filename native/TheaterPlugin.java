@@ -336,7 +336,11 @@ public class TheaterPlugin extends Plugin {
                 root.setBackgroundColor(Color.BLACK);
                 if (barraTopo  != null) barraTopo.setVisibility(View.VISIBLE);
                 if (barraAcoes != null) barraAcoes.setVisibility(View.VISIBLE);
-                root.setVisibility(View.VISIBLE);
+                /* NÃO tornar visível aqui — era esta linha que fazia o navegador
+                   piscar. Fechar o navegador passa por este método (para desfazer
+                   o encaixe no card antes de sair), e ele exibia a janela um
+                   quadro antes de ela ser escondida. Agora este método apenas
+                   reconfigura o tamanho; quem decide mostrar é 'open' ou 'show'. */
                 modoCard = false;
                 call.resolve();
             } catch (Throwable t) {
