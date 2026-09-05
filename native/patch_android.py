@@ -26,10 +26,14 @@ def adicionar_dependencia():
     # androidx.webkit permite injetar o detector também dentro dos quadros
     # internos da página (muitos sites põem o player num iframe próprio)
     with open(GRADLE) as f: s = f.read()
-    if 'androidx.webkit' in s:
-        print('dependência já presente'); return
+    if 'androidx.webkit' in s and 'androidx.media' in s:
+        print('dependências já presentes'); return
+    # androidx.media traz a sessão de mídia, exigida para o som continuar em
+    # segundo plano; sem ela o projeto nem compila.
     s = s.replace('dependencies {',
-                  "dependencies {\n    implementation 'androidx.webkit:webkit:1.11.0'", 1)
+                  "dependencies {\n"
+                  "    implementation 'androidx.webkit:webkit:1.11.0'\n"
+                  "    implementation 'androidx.media:media:1.7.0'", 1)
     with open(GRADLE, 'w') as f: f.write(s)
     print('dependência androidx.webkit adicionada')
 
