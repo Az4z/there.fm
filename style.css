@@ -1303,8 +1303,13 @@ body.in-room .vol-wrap{display:flex}
 body.board-digitando .board-zoom{opacity:0;transform:translateY(14px);pointer-events:none}
 
 /* contorno de vidro dos conectores: faixa larga e translúcida por baixo do traço */
-.board-edge-glass{stroke-width:7;opacity:.5;transition:opacity .14s,stroke-width .14s;
-  pointer-events:none}
-.board-edge-hit:hover ~ .board-edge-glass{opacity:.85;stroke-width:9}
-.board-edge.sel ~ .board-edge-glass,
-.board-edge-glass.sel{opacity:.9;stroke-width:10}
+/* Camada de vidro por baixo do traço: faixa larga e translúcida que cria o
+   contorno suave. O estado é marcado por classe (ver board.js) em vez de regra
+   de vizinhança, que não funcionava pela ordem dos elementos no desenho. */
+.board-edge-glass{stroke-width:9;opacity:.45;pointer-events:none;
+  transition:opacity .16s,stroke-width .16s}
+.board-edge-glass.hover{opacity:.75;stroke-width:12}
+.board-edge-glass.sel{opacity:.95;stroke-width:14}
+/* traço principal um pouco mais fino, para o vidro aparecer nas bordas */
+.board-edge{stroke-width:2.2}
+.board-edge.sel{stroke-width:3}
