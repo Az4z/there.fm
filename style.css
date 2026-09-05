@@ -1319,3 +1319,56 @@ body.board-digitando .board-zoom{opacity:0;transform:translateY(14px);pointer-ev
 .board-edge-handle-hit{cursor:grab;touch-action:none;pointer-events:none}
 .board-edge-handle-hit:active{cursor:grabbing}
 .board-edge-del{cursor:pointer;touch-action:none}
+
+/* ── BORDAS DECORATIVAS DO CARD DE PERFIL ───────────────────── */
+/* Ficam fora do fluxo e sem receber toque, então não empurram o conteúdo nem
+   atrapalham os botões do card. overflow visible no card permite que ultrapassem
+   um pouco a moldura, que é o efeito desejado. */
+.perfil-card{position:relative;overflow:visible}
+.perfil-borda{position:absolute;left:50%;display:none;max-width:none;
+  width:auto;height:auto;pointer-events:none;z-index:6;
+  transform-origin:center;image-rendering:auto}
+.perfil-borda-topo{bottom:100%;margin-bottom:-14px}
+.perfil-borda-baixo{top:100%;margin-top:-14px}
+
+/* ── PRÉ-VISUALIZAÇÃO ───────────────────── */
+.borda-dica{font-size:.7rem;color:var(--dust);line-height:1.5;margin-bottom:.7rem}
+.bpv-wrap{position:relative;padding:2.6rem .5rem;margin-bottom:.8rem;
+  border-radius:var(--rl);background:rgba(0,0,0,.3);border:1px dashed var(--ridge)}
+.bpv-tag{position:absolute;top:.5rem;left:.6rem;z-index:9;
+  font-size:.55rem;letter-spacing:.14em;font-weight:700;
+  padding:.15rem .5rem;border-radius:100px;color:#0b1310;
+  background:linear-gradient(90deg,#7fe0a8,#bff5d5)}
+.bpv-card{position:relative;overflow:visible;border-radius:var(--rl);padding:.7rem;
+  background:linear-gradient(160deg,rgba(255,255,255,.045),rgba(10,12,11,.96));
+  border:1px solid var(--ridge)}
+.bpv-banner{width:100%;aspect-ratio:3/1;border-radius:8px;overflow:hidden}
+.bpv-linha{display:flex;gap:.6rem;align-items:flex-end;margin-top:-26px;position:relative;z-index:2}
+.bpv-av{width:56px;height:56px;border-radius:50%;overflow:visible;position:relative;
+  border:3px solid rgba(0,0,0,.6);background:#222;flex-shrink:0}
+.bpv-av img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.bpv-txt{min-width:0;flex:1;padding-bottom:.15rem}
+.bpv-nome{font-weight:700;font-size:.85rem;color:var(--bone);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.bpv-user{font-size:.7rem;color:var(--ash)}
+.bpv-bio{font-size:.68rem;color:var(--dust);margin-top:.4rem;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ── ESCOLHA E AJUSTE DAS BORDAS ───────────────────── */
+.borda-abas{display:grid;grid-template-columns:1fr 1fr;gap:.25rem;margin-bottom:.5rem;
+  background:rgba(255,255,255,.04);border:1px solid var(--ridge);border-radius:var(--r);padding:.22rem}
+.borda-aba{padding:.4rem .2rem;border:none;border-radius:calc(var(--r) - 3px);background:transparent;
+  color:var(--dust);font-size:.7rem;cursor:pointer;transition:background .16s,color .16s}
+.borda-aba:hover{color:var(--bone)}
+.borda-aba.on{background:rgba(74,222,128,.14);color:var(--bone);
+  box-shadow:inset 0 0 0 1px rgba(120,235,170,.35)}
+.borda-galeria{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.4rem;margin-bottom:.5rem}
+.borda-item{flex-shrink:0;width:86px;height:44px;border-radius:8px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  background:rgba(255,255,255,.04);border:2px solid transparent;
+  font-size:.62rem;color:var(--dust);transition:border-color .14s,transform .14s}
+.borda-item:hover{transform:translateY(-2px)}
+.borda-item.on{border-color:var(--green)}
+.borda-item img{max-width:100%;max-height:100%;object-fit:contain}
+.borda-ctrl{display:flex;flex-direction:column;gap:.25rem}
+.borda-ctrl input[type=range]{width:100%}

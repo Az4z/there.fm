@@ -552,6 +552,43 @@
         </div>
       </div>
     </div>
+    <div class="ssec"><h3>Bordas do card</h3>
+      <p class="borda-dica">Imagens decorativas no topo e no rodapé do seu perfil. Todo mundo que abrir seu perfil vê.</p>
+
+      <!-- PRÉ-VISUALIZAÇÃO: é o mesmo card do perfil real, com um rótulo -->
+      <div class="bpv-wrap">
+        <span class="bpv-tag">PRÉVIA</span>
+        <div class="bpv-card" id="bpvCard">
+          <img class="perfil-borda perfil-borda-topo"  id="bpvBordaTopo"  alt="">
+          <img class="perfil-borda perfil-borda-baixo" id="bpvBordaBaixo" alt="">
+          <div class="bpv-banner" id="bpvBanner"></div>
+          <div class="bpv-linha">
+            <div class="bpv-av" id="bpvAvatar"></div>
+            <div class="bpv-txt">
+              <div class="bpv-nome" id="bpvNome">Seu nome</div>
+              <div class="bpv-user" id="bpvUser">@usuario</div>
+            </div>
+          </div>
+          <div class="bpv-bio" id="bpvBio"></div>
+        </div>
+      </div>
+
+      <div class="borda-abas">
+        <button class="borda-aba on" id="bordaAbaTopo" onclick="bordaAba('topo')">Borda de cima</button>
+        <button class="borda-aba" id="bordaAbaBaixo" onclick="bordaAba('baixo')">Borda de baixo</button>
+      </div>
+      <div class="borda-galeria" id="bordaGaleria"></div>
+      <div class="borda-ctrl">
+        <label class="slbl">Tamanho <span id="bordaEscalaVal">100%</span></label>
+        <input type="range" id="bordaEscala" min="40" max="200" value="100" oninput="bordaAjuste()">
+        <label class="slbl">Posição horizontal</label>
+        <input type="range" id="bordaX" min="-100" max="100" value="0" oninput="bordaAjuste()">
+        <label class="slbl">Posição vertical</label>
+        <input type="range" id="bordaY" min="-100" max="100" value="0" oninput="bordaAjuste()">
+        <button class="rl-btn" onclick="bordaRemover()">remover esta borda</button>
+      </div>
+    </div>
+
     <div class="ssec"><h3 data-i18n="prof.frames">Molduras</h3>
       <div id="framePresets" class="gg"></div>
       <div style="margin-top:.5rem;font-size:.7rem;color:var(--dust)">Novas molduras são adicionadas pela administração — mande sua sugestão de imagem.</div>
@@ -566,7 +603,11 @@
 
 <!-- Perfil Público -->
 <div class="modal" id="profileModal">
-  <div class="mbox" style="max-width:680px;width:calc(100% - 2rem)">
+  <div class="mbox perfil-card" id="pubCard" style="max-width:680px;width:calc(100% - 2rem)">
+    <!-- Bordas decorativas: imagens que a pessoa escolhe para enfeitar o topo e
+         o rodapé do próprio card. Ficam fora do fluxo, sem empurrar o conteúdo. -->
+    <img class="perfil-borda perfil-borda-topo"  id="pubBordaTopo"  alt="">
+    <img class="perfil-borda perfil-borda-baixo" id="pubBordaBaixo" alt="">
     <div style="display:flex;gap:1rem">
       <div style="flex:1">
         <div id="pubBanner" style="width:100%;aspect-ratio:3/1;background:linear-gradient(90deg,#111,#222);border-radius:8px;overflow:hidden;background-size:cover;background-position:center"></div>
