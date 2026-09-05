@@ -122,6 +122,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   safeInit('initCropDrag',      initCropDrag);
   safeInit('startPlaybackWatchdog', startPlaybackWatchdog);
   safeInit('initNetworkRecovery', initNetworkRecovery);
+  safeInit('carregarEscala', carregarEscala);   // aplica o tamanho salvo já na abertura
   safeInit('resolveOwnerUid',   resolveOwnerUid);
   safeInit('globalListeners', ()=>{
     window.addEventListener('pagehide',()=>{ if(callActive)endCall(true); });

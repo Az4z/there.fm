@@ -138,29 +138,222 @@ function openPrefs(){
   $('prefsPanel').classList.add('on');
   setTheme(currentTheme());
   setLang(currentLang(),true);
+  initEscalaControle();
 }
 function closePrefs(){ $('prefsPanel').classList.remove('on'); }
 
 /* Traduções: só o que aparece na interface fixa. Textos vindos do banco
    (nomes, bios, mensagens) obviamente continuam como foram escritos. */
+/* Dicionário do aplicativo. Antes só as configurações estavam marcadas para
+   tradução — o resto da interface continuava em português mesmo em inglês.
+   Agora as telas principais, botões, campos e painéis estão cobertos. Textos
+   vindos do banco (nomes, mensagens, bios) seguem como foram escritos. */
 const I18N={
   pt:{
-    'prefs.title':'Configurações','prefs.theme':'Tema','prefs.lang':'Idioma','prefs.account':'Conta',
-    'prefs.logout':'Sair da conta','prefs.madeby':'feito por','theme.dark':'Escuro','theme.light':'Claro','theme.eclipse':'Eclipse',
-    'land.tag':'salas sincronizadas em tempo real<br>para assistir junto',
-    'land.join':'Entrar','land.create':'✦ Criar Sala','land.profile':'Perfil','land.members':'Membros','land.prefs':'Configurações',
-    'room.leave':'Sair','music.title':'Música','board.title':'Quadro','call.title':'Chamada de voz',
-    'call.join':'Entrar na chamada','prefs.close':'Fechar'
+    'act.add':"Adicionar",
+    'act.back':"Voltar",
+    'act.cancel':"Cancelar",
+    'act.clear':"Limpar",
+    'act.close':"Fechar",
+    'act.enter':"Entrar",
+    'act.exit':"Sair",
+    'act.remove':"Remover",
+    'act.save':"Salvar",
+    'act.search':"Buscar",
+    'act.send':"Enviar",
+    'auth.create':"Criar uma",
+    'auth.google':"Entrar com Google",
+    'auth.has':"Já tem conta?",
+    'auth.signup':"Criar Conta",
+    'board.connect':"Conectar",
+    'board.img':"+ Imagem",
+    'board.note':"+ Nota",
+    'board.title':"Quadro",
+    'call.join':"Entrar na chamada",
+    'call.title':"Chamada de voz",
+    'draw.eraser':"Borracha",
+    'draw.label':"Desenho",
+    'draw.title':"Desenhar",
+    'draw.undo':"Desfazer",
+    'f.banner':"Banner",
+    'f.bio':"Biografia",
+    'f.color':"Cor",
+    'f.email':"Email",
+    'f.name':"Nome",
+    'f.pass':"Senha",
+    'f.user':"Usuário",
+    'img.add':"Adicionar Imagem",
+    'img.crop':"Ajustar foto",
+    'img.gallery':"Escolher da Galeria",
+    'log.title':"Mensagens da sala",
+    'mem.search':"Buscar membros",
+    'music.title':"Música",
+    'nav.chat':"Conversa",
+    'nav.chats':"Conversas",
+    'nav.friends':"Amigos",
+    'nav.members':"Membros",
+    'nav.profile':"Perfil",
+    'opt.none':"Nenhum",
+    'opt.nonef':"Nenhuma",
+    'opt.soft':"Suave",
+    'opt.solid':"Sólido",
+    'ph.code':"Código da sala...",
+    'ph.msg':"Mensagem...",
+    'ph.name':"Seu nome",
+    'ph.vid':"Buscar vídeos...",
+    'prefs.account':"Conta",
+    'prefs.lang':"Idioma",
+    'prefs.logout':"Sair da conta",
+    'prefs.reset':"restaurar",
+    'prefs.scale':"Tamanho da interface",
+    'prefs.theme':"Tema",
+    'prefs.title':"Configurações",
+    'prof.auto':"Automática",
+    'prof.color':"Cor do perfil",
+    'prof.custom':"Cor personalizada",
+    'prof.frames':"Molduras",
+    'prof.look':"Aparência do perfil",
+    'prof.namecolor':"Cor do nome",
+    'prof.open':"Abrir meu perfil",
+    'prof.own':"Própria",
+    'room.parts':"Participantes",
+    't.gif':"GIF",
+    't.image':"Imagem",
+    't.loading':"Carregando...",
+    'theme.dark':"Escuro",
+    'theme.eclipse':"Eclipse",
+    'theme.light':"Claro",
+    'vid.add':"Adicionar Vídeo",
+    'vid.discover':"Descobrir",
+    'vid.link':"Colar link",
+    'vid.scan':"Buscar na página"
   },
   en:{
-    'prefs.title':'Settings','prefs.theme':'Theme','prefs.lang':'Language','prefs.account':'Account',
-    'prefs.logout':'Sign out','prefs.madeby':'made by','theme.dark':'Dark','theme.light':'Light','theme.eclipse':'Eclipse',
-    'land.tag':'real-time synced rooms<br>to watch together',
-    'land.join':'Join','land.create':'✦ Create Room','land.profile':'Profile','land.members':'Members','land.prefs':'Settings',
-    'room.leave':'Leave','music.title':'Music','board.title':'Board','call.title':'Voice call',
-    'call.join':'Join call','prefs.close':'Close'
+    'act.add':"Add",
+    'act.back':"Back",
+    'act.cancel':"Cancel",
+    'act.clear':"Clear",
+    'act.close':"Close",
+    'act.enter':"Join",
+    'act.exit':"Leave",
+    'act.remove':"Remove",
+    'act.save':"Save",
+    'act.search':"Search",
+    'act.send':"Send",
+    'auth.create':"Create one",
+    'auth.google':"Sign in with Google",
+    'auth.has':"Already have an account?",
+    'auth.signup':"Create account",
+    'board.connect':"Connect",
+    'board.img':"+ Image",
+    'board.note':"+ Note",
+    'board.title':"Board",
+    'call.join':"Join call",
+    'call.title':"Voice call",
+    'draw.eraser':"Eraser",
+    'draw.label':"Drawing",
+    'draw.title':"Draw",
+    'draw.undo':"Undo",
+    'f.banner':"Banner",
+    'f.bio':"Bio",
+    'f.color':"Color",
+    'f.email':"Email",
+    'f.name':"Name",
+    'f.pass':"Password",
+    'f.user':"Username",
+    'img.add':"Add image",
+    'img.crop':"Adjust photo",
+    'img.gallery':"Choose from gallery",
+    'log.title':"Room messages",
+    'mem.search':"Search members",
+    'music.title':"Music",
+    'nav.chat':"Chat",
+    'nav.chats':"Chats",
+    'nav.friends':"Friends",
+    'nav.members':"Members",
+    'nav.profile':"Profile",
+    'opt.none':"None",
+    'opt.nonef':"None",
+    'opt.soft':"Soft",
+    'opt.solid':"Solid",
+    'ph.code':"Room code...",
+    'ph.msg':"Message...",
+    'ph.name':"Your name",
+    'ph.vid':"Search videos...",
+    'prefs.account':"Account",
+    'prefs.lang':"Language",
+    'prefs.logout':"Sign out",
+    'prefs.reset':"reset",
+    'prefs.scale':"Interface size",
+    'prefs.theme':"Theme",
+    'prefs.title':"Settings",
+    'prof.auto':"Automatic",
+    'prof.color':"Profile color",
+    'prof.custom':"Custom color",
+    'prof.frames':"Frames",
+    'prof.look':"Profile appearance",
+    'prof.namecolor':"Name color",
+    'prof.open':"Open my profile",
+    'prof.own':"Custom",
+    'room.parts':"Participants",
+    't.gif':"GIF",
+    't.image':"Image",
+    't.loading':"Loading...",
+    'theme.dark':"Dark",
+    'theme.eclipse':"Eclipse",
+    'theme.light':"Light",
+    'vid.add':"Add video",
+    'vid.discover':"Discover",
+    'vid.link':"Paste link",
+    'vid.scan':"Scan page"
   }
 };
+/* ══════════════════════════════════════════════════════════════════
+   TAMANHO DA INTERFACE
+   Serve para telas pequenas (onde tudo fica apertado) e grandes (onde tudo fica
+   pequeno demais). Usamos "zoom", que escala TUDO — inclusive medidas fixas em
+   pixels — em vez de só o tamanho da fonte, que deixaria botões e espaçamentos
+   fora de proporção.
+   A escolha é local e vale para todas as salas; fica guardada no aparelho. */
+const ESCALA_MIN=0.75, ESCALA_MAX=1.35;
+let uiEscala = 1;
+
+function aplicarEscala(v,salvar){
+  uiEscala=Math.max(ESCALA_MIN,Math.min(ESCALA_MAX,v));
+  try{ document.documentElement.style.zoom=uiEscala; }catch(e){}
+  const pct=Math.round(uiEscala*100);
+  const val=$('escalaValor'); if(val) val.textContent=pct+'%';
+  const frac=(uiEscala-ESCALA_MIN)/(ESCALA_MAX-ESCALA_MIN);
+  const f=$('escalaFill'); if(f) f.style.width=(frac*100)+'%';
+  const k=$('escalaKnob'); if(k) k.style.left=(frac*100)+'%';
+  if(salvar!==false){ try{ localStorage.setItem('tfm_escala',String(uiEscala)); }catch(e){} }
+}
+function resetarEscala(){ aplicarEscala(1); toast('Tamanho restaurado'); }
+function carregarEscala(){
+  let v=1;
+  try{ v=parseFloat(localStorage.getItem('tfm_escala')||'1')||1; }catch(e){}
+  aplicarEscala(v,false);
+}
+function initEscalaControle(){
+  const trilho=$('escalaTrilho'); if(!trilho||trilho.dataset.pronto) return;
+  trilho.dataset.pronto='1';
+  let arrastando=false;
+  const daPosicao=e=>{
+    const r=trilho.getBoundingClientRect();
+    const frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+    aplicarEscala(ESCALA_MIN+frac*(ESCALA_MAX-ESCALA_MIN));
+  };
+  trilho.addEventListener('pointerdown',e=>{
+    arrastando=true;
+    try{ trilho.setPointerCapture(e.pointerId); }catch(_){}
+    daPosicao(e); e.preventDefault();
+  });
+  trilho.addEventListener('pointermove',e=>{ if(arrastando) daPosicao(e); });
+  const soltar=()=>{ arrastando=false; };
+  trilho.addEventListener('pointerup',soltar);
+  trilho.addEventListener('pointercancel',soltar);
+  carregarEscala();
+}
 function currentLang(){ return localStorage.getItem('tfm_lang')||'pt'; }
 function t(key){ const l=I18N[currentLang()]||I18N.pt; return l[key]||I18N.pt[key]||key; }
 function setLang(lang,silent){
@@ -174,7 +367,13 @@ function setLang(lang,silent){
 function applyI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const v=t(el.dataset.i18n);
+    if(!v||v===el.dataset.i18n) return;      // sem tradução: mantém o original
     if(/<[a-z]/i.test(v)) el.innerHTML=v; else el.textContent=v;
+  });
+  // texto que aparece dentro dos campos antes de digitar
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    const v=t(el.dataset.i18nPh);
+    if(v&&v!==el.dataset.i18nPh) el.setAttribute('placeholder',v);
   });
 }
 (function(){
