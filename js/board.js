@@ -140,7 +140,11 @@ function initBoardViewportEvents(){
       boardPan={ startX:e.clientX, startY:e.clientY, ox:boardView.x, oy:boardView.y };
       outer.classList.add('panning');
       try{ outer.setPointerCapture(e.pointerId); }catch(err){}
-      if(onEmpty){ boardSelectedEdge=null; scheduleEdgeRedraw(); }
+      if(onEmpty){
+        const anterior=boardSelectedEdge;
+        boardSelectedEdge=null;
+        if(anterior) scheduleEdgeRedraw([anterior]);
+      }
     }
   });
   // pointermove pode disparar mais rápido que a tela atualiza; limitamos a 1 por frame
@@ -677,7 +681,13 @@ function redrawBoardEdges(only){
       const hit=document.createElementNS(NS,'path');   // traço invisível e grosso: facilita clicar
       hit.setAttribute('class','board-edge-hit'); hit.setAttribute('fill','none');
       hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width','18');
-      hit.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); boardSelectedEdge=edge.id; scheduleEdgeRedraw(); });
+      hit.addEventListener('pointerdown',ev=>{
+        ev.stopPropagation();
+        const anterior=boardSelectedEdge;
+        boardSelectedEdge=edge.id;
+        // redesenha só o que mudou de estado: o anterior e o novo
+        scheduleEdgeRedraw(anterior && anterior!==edge.id ? [anterior,edge.id] : [edge.id]);
+      });
       hit.addEventListener('pointerenter',()=>{ if(g&&g.glass) g.glass.classList.add('hover'); });
       hit.addEventListener('pointerleave',()=>{ if(g&&g.glass) g.glass.classList.remove('hover'); });
       hit.addEventListener('dblclick',ev=>{ ev.stopPropagation(); resetEdgeBend(edge.id); });
@@ -692,19 +702,30 @@ function redrawBoardEdges(only){
       path.setAttribute('class','board-edge'); path.setAttribute('fill','none');
       path.setAttribute('stroke','url(#boardEdgeGrad)');
       path.setAttribute('stroke-linecap','round');
-      const handle=document.createElementNS(NS,'circle'); // alça pra entortar
-      handle.setAttribute('class','board-edge-handle'); handle.setAttribute('r','7');
+      /* A alça é pequena de propósito (fica discreta), mas 7px é impossível de
+         acertar com o dedo. Por isso existe um círculo INVISÍVEL bem maior por
+         cima, que recebe o toque. É o mesmo truque dos botões pequenos: alvo
+         grande, desenho pequeno. */
+      const handle=document.createElementNS(NS,'circle'); // parte visível
+      handle.setAttribute('class','board-edge-handle'); handle.setAttribute('r','8');
+      const handleHit=document.createElementNS(NS,'circle'); // área de toque
+      handleHit.setAttribute('class','board-edge-handle-hit');
+      handleHit.setAttribute('r','26');
+      handleHit.setAttribute('fill','transparent');
+      handleHit.addEventListener('pointerdown',ev=>startEdgeBend(ev,edge.id));
       handle.addEventListener('pointerdown',ev=>startEdgeBend(ev,edge.id));
       const del=document.createElementNS(NS,'g');         // ação de apagar, só quando selecionado
       del.setAttribute('class','board-edge-del');
-      const dc=document.createElementNS(NS,'circle'); dc.setAttribute('r','9'); dc.setAttribute('fill','rgba(196,92,92,.95)');
+      const dh=document.createElementNS(NS,'circle'); dh.setAttribute('r','24'); dh.setAttribute('fill','transparent');
+      del.appendChild(dh);   // área de toque ampliada para o dedo
+      const dc=document.createElementNS(NS,'circle'); dc.setAttribute('r','11'); dc.setAttribute('fill','rgba(196,92,92,.95)');
       const dt=document.createElementNS(NS,'text'); dt.setAttribute('text-anchor','middle'); dt.setAttribute('dy','3.5');
       dt.setAttribute('font-size','11'); dt.setAttribute('fill','#fff'); dt.textContent='×';
       del.appendChild(dc); del.appendChild(dt);
       del.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); deleteBoardEdge(edge.id); });
       svg.appendChild(hit); svg.appendChild(glass); svg.appendChild(path);
-      svg.appendChild(handle); svg.appendChild(del);
-      g=_edgeEls[edge.id]={hit,glass,path,handle,del};
+      svg.appendChild(handleHit); svg.appendChild(handle); svg.appendChild(del);
+      g=_edgeEls[edge.id]={hit,glass,path,handle,handleHit,del};
     }
     /* O traço termina um pouco ANTES do destino. Sem isso a linha continuava por
        baixo da seta e a curva reaparecia depois dela, deixando aquela sobra feia
@@ -728,6 +749,11 @@ function redrawBoardEdges(only){
     const hx=0.25*geo.p1.x+0.5*geo.cx+0.25*geo.p2.x, hy=0.25*geo.p1.y+0.5*geo.cy+0.25*geo.p2.y;
     g.handle.setAttribute('cx',hx); g.handle.setAttribute('cy',hy);
     g.handle.classList.toggle('show',sel);
+    if(g.handleHit){
+      g.handleHit.setAttribute('cx',hx); g.handleHit.setAttribute('cy',hy);
+      // só aceita toque quando o conector está selecionado
+      g.handleHit.style.pointerEvents = sel ? 'auto' : 'none';
+    }
     const canDel=edge.created_by===U.id;
     g.del.style.display=(sel&&canDel)?'':'none';
     g.del.setAttribute('transform',`translate(${hx+22},${hy-16})`);
@@ -787,38 +813,44 @@ function startEdgeBend(e,id){
   const move=ev=>{
     const edge=boardEdges[id]; if(!edge) return;
     const p=boardPoint(ev.clientX,ev.clientY);
-    /* BUG CORRIGIDO — a alça fugia para longe do dedo.
-       Eu calculava a curvatura a partir do CENTRO das notas, mas a curva é
-       desenhada entre as BORDAS delas. O ponto médio de uma curva é
-         M = ¼·início + ½·controle + ¼·fim
-       e eu tratava o meio dos centros como se fosse esse M. Como as bordas ficam
-       deslocadas em relação aos centros, a alça sempre nascia fora do lugar — e
-       quanto mais eu arrastava, mais ela escapava.
-       Agora resolvo o controle de verdade a partir da fórmula acima:
-         controle = 2·M − (início + fim)/2
-       Como as bordas dependem do próprio controle, repito o cálculo três vezes;
-       isso converge de imediato e a alça passa a acompanhar o dedo com exatidão. */
-    let geo=edgeGeometry(edge); if(!geo) return;
-    for(let i=0;i<3;i++){
-      const cx = 2*p.x - (geo.p1.x + geo.p2.x)/2;
-      const cy = 2*p.y - (geo.p1.y + geo.p2.y)/2;
-      edge.bend_x = cx - geo.mx;
-      edge.bend_y = cy - geo.my;
-      geo = edgeGeometry(edge) || geo;
+    /* Resolve o ponto de controle para que o meio da curva caia sob o dedo.
+       Duas mudanças em relação à versão anterior:
+
+       1. UM PASSO SÓ, sem repetir o cálculo. Repetir tentava refinar a posição,
+          mas as bordas mudam de face conforme a curva gira, e o refinamento
+          ficava perseguindo um alvo móvel.
+
+       2. LIMITE DE CURVATURA. Antes não havia teto: arrastar o dedo para longe
+          gerava curvaturas de milhares de pixels — era isso que produzia aquele
+          laço gigante atravessando o quadro. Agora a curva não passa de 1,2 vez
+          a distância entre as notas, que já permite curvas bem acentuadas sem
+          nunca escapar do controle. */
+    const geo=edgeGeometry(edge); if(!geo) return;
+    let cx = 2*p.x - (geo.p1.x + geo.p2.x)/2;
+    let cy = 2*p.y - (geo.p1.y + geo.p2.y)/2;
+    let bx = cx - geo.mx, by = cy - geo.my;
+
+    const distNos = Math.hypot(geo.p2.x-geo.p1.x, geo.p2.y-geo.p1.y) || 1;
+    const tetoCurva = Math.max(160, distNos*1.2);
+    const forca = Math.hypot(bx,by);
+    if(forca > tetoCurva){
+      const k = tetoCurva/forca;
+      bx*=k; by*=k;
     }
-    scheduleEdgeRedraw();
+    edge.bend_x=bx; edge.bend_y=by;
+    scheduleEdgeRedraw([id]);   // redesenha só este conector
   };
   const up=()=>{
     document.removeEventListener('pointermove',move);
     document.removeEventListener('pointerup',up);
-    boardEdgeDrag=null; saveEdgeBend(id);
+    boardEdgeDrag=null; saveEdgeBend(id); scheduleEdgeRedraw([id]);
   };
   document.addEventListener('pointermove',move);
   document.addEventListener('pointerup',up);
 }
 function resetEdgeBend(id){
   const edge=boardEdges[id]; if(!edge) return;
-  edge.bend_x=0; edge.bend_y=0; scheduleEdgeRedraw(); saveEdgeBend(id);
+  edge.bend_x=0; edge.bend_y=0; scheduleEdgeRedraw([id]); saveEdgeBend(id);
 }
 /* Persiste a curvatura. Se o banco ainda não tiver as colunas bend_x/bend_y,
    ignoramos o erro silenciosamente: a curva continua valendo nesta sessão e o
