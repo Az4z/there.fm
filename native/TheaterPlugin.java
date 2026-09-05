@@ -442,8 +442,17 @@ public class TheaterPlugin extends Plugin {
 
         final boolean cedoOk = cedo;
         web.setWebViewClient(new WebViewClient() {
+            /* Bloqueia anúncios e rastreadores antes mesmo de baixarem. Além de
+               tirar a poluição, deixa as páginas bem mais leves — o que ajuda o
+               vídeo a carregar e a sincronia a se manter. */
+            @Override public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest req) {
+                WebResourceResponse bloqueado = AdBlock.interceptar(req);
+                if (bloqueado != null) return bloqueado;
+                return super.shouldInterceptRequest(v, req);
+            }
             @Override public void onPageFinished(WebView v, String u) {
                 urlBar.setText(u);
+                v.evaluateJavascript(AdBlock.CSS_LIMPEZA, null);   // remove anúncios do próprio site
                 if (!cedoOk) v.evaluateJavascript(DETECTOR, null);
                 JSObject o = new JSObject();
                 o.put("url", u);
