@@ -129,7 +129,8 @@ jobs:
           # no repositório — antes isso passava batido e o APK saía sem o
           # navegador, sem nenhum aviso.
           faltando=0
-          for f in native/TheaterPlugin.java native/MainActivity.java native/patch_android.py; do
+          for f in native/TheaterPlugin.java native/MainActivity.java native/patch_android.py \
+                   native/AdBlock.java native/PlaybackService.java; do
             if [ ! -f "$f" ]; then echo "FALTANDO: $f"; faltando=1; fi
           done
           if [ "$faltando" = "1" ]; then
