@@ -224,12 +224,21 @@
 <div class="parts" id="parts"><div class="ph">Participantes</div><div id="partsList"></div></div>
 
 <!-- Volume universal de mídia (sincronizado com a sala) -->
-<div class="vol-bar" id="volBar" title="Volume de vídeos e músicas (vale para todos)">
-  <button class="vol-ico" id="volIcon" onclick="toggleMediaMute()" title="Silenciar mídia"></button>
-  <div class="vol-track" id="volTrack">
-    <div class="vol-fill" id="volFill"></div>
+<div class="vol-wrap" id="volWrap">
+  <!-- Aba com seta: recolhe e mostra o controle de volume. É só visual e local —
+       o volume em si continua valendo para todos, mas esconder é escolha sua. -->
+  <button class="vol-tab" id="volTab" onclick="toggleVolumeBar()" title="Mostrar/ocultar volume" aria-label="Mostrar ou ocultar volume">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+      <polyline points="15 5 8 12 15 19"/>
+    </svg>
+  </button>
+  <div class="vol-bar" id="volBar" title="Volume de vídeos e músicas (vale para todos)">
+    <button class="vol-ico" id="volIcon" onclick="toggleMediaMute()" title="Silenciar mídia"></button>
+    <div class="vol-track" id="volTrack">
+      <div class="vol-fill" id="volFill"></div>
+    </div>
+    <span class="vol-pct" id="volPct">70</span>
   </div>
-  <span class="vol-pct" id="volPct">70</span>
 </div>
 
 <!-- Chamada de voz -->

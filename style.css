@@ -1160,3 +1160,45 @@ body.board-open .main-more{display:none!important}
 .rl-txt{font-size:.8rem;color:var(--bone);line-height:1.4;word-break:break-word;overflow-wrap:anywhere}
 .rl-gif{max-width:150px;border-radius:8px;display:block;margin-top:.2rem}
 .rl-vazio{font-size:.75rem;color:var(--dust);text-align:center;padding:1.6rem .5rem;font-style:italic}
+
+/* ── ABA DO VOLUME (seta recolhível) ───────────────────── */
+.vol-wrap{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:60;
+  display:none;align-items:center}
+body.in-room .vol-wrap{display:flex}
+/* a barra desliza para fora da tela quando recolhida */
+.vol-wrap .vol-bar{position:static;transform:none;right:auto;top:auto;
+  transition:transform .34s cubic-bezier(.34,1.3,.64,1),opacity .24s;
+  transform:translateX(calc(100% + 1rem));opacity:0;pointer-events:none;margin-right:.55rem}
+.vol-wrap.on .vol-bar{transform:translateX(0);opacity:1;pointer-events:auto}
+/* aba fina, sempre acessível */
+.vol-tab{order:-1;width:26px;height:58px;flex-shrink:0;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(8,14,11,.92);backdrop-filter:var(--blur);color:var(--ash);
+  border:1px solid rgba(255,255,255,.09);border-right:none;
+  border-radius:12px 0 0 12px;box-shadow:-4px 0 18px rgba(0,0,0,.4);
+  transition:color .2s,background .2s}
+.vol-tab:hover{color:var(--bone);background:rgba(16,26,21,.95)}
+.vol-tab svg{transition:transform .34s cubic-bezier(.34,1.3,.64,1)}
+.vol-wrap.on .vol-tab svg{transform:rotate(180deg)}
+.vol-wrap.on .vol-tab{color:var(--green)}
+
+/* ── BARRA DE PROGRESSO DOS PLAYERS ───────────────────── */
+/* Altura visual pequena, mas área de toque grande: dá para arrastar com o dedo
+   sem precisar de precisão. */
+.vbar{position:relative;height:16px;flex-shrink:0;cursor:pointer;touch-action:none;
+  display:flex;align-items:center;padding:0 .55rem;background:rgba(0,0,0,.25)}
+.vbar::before{content:'';position:absolute;left:.55rem;right:.55rem;height:3px;
+  border-radius:100px;background:rgba(255,255,255,.14)}
+.vbar-fill{position:relative;height:3px;border-radius:100px;width:0%;
+  background:linear-gradient(90deg,var(--green),#7fe0a8);
+  box-shadow:0 0 8px rgba(120,235,170,.45);transition:width .2s linear}
+.vbar-knob{position:absolute;top:50%;left:0%;width:10px;height:10px;border-radius:50%;
+  background:#bff5d5;transform:translate(-50%,-50%);box-shadow:0 0 8px rgba(120,235,170,.7);
+  opacity:0;transition:opacity .16s,transform .16s}
+.vbar:hover .vbar-knob,.vbar:active .vbar-knob{opacity:1}
+.vbar:active .vbar-knob{transform:translate(-50%,-50%) scale(1.25)}
+.vtime-dur{margin-left:.25rem;color:var(--shadow)}
+.vtime-dur:not(:empty)::before{content:'/ ';opacity:.6}
+/* área de toque maior no botão de "a seguir" */
+.vc-big{width:34px;height:32px;position:relative}
+.vc-big::after{content:'';position:absolute;inset:-8px}
