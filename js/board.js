@@ -363,11 +363,74 @@ function autoGrowNode(id){
   });
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   COLISÃO AO CRIAR
+   Antes toda nota nascia no centro da tela, então cada nova caía exatamente em
+   cima da anterior. Agora procuramos um lugar livre em espiral a partir do
+   centro: o primeiro ponto onde a nota não encosta em nenhuma outra.
+   ══════════════════════════════════════════════════════════════════ */
+const GAP = 18;   // respiro mínimo entre notas
+
+function colideComAlguma(x,y,w,h,ignorarId){
+  for(const id in boardNodes){
+    if(id===ignorarId) continue;
+    const n=boardNodes[id]; if(!n) continue;
+    const [nw,nh]=nodeDims(n,id);
+    if(x < (n.x||0)+nw+GAP && x+w+GAP > (n.x||0) &&
+       y < (n.y||0)+nh+GAP && y+h+GAP > (n.y||0)) return true;
+  }
+  return false;
+}
+/* Espiral quadrada: anda em anéis cada vez maiores até achar espaço.
+   É barato mesmo com muitas notas, porque para no primeiro lugar livre. */
+function acharLugarLivre(w,h){
+  const c=boardViewportCenter();
+  let x=Math.round(c.x-w/2), y=Math.round(c.y-h/2);
+  if(!colideComAlguma(x,y,w,h)) return {x,y};
+  const passo=Math.max(w,h)*0.55;
+  for(let anel=1; anel<=14; anel++){
+    const r=anel*passo;
+    // 8 direções por anel: direita, baixo, esquerda, cima e as diagonais
+    const pontos=[
+      [r,0],[0,r],[-r,0],[0,-r],
+      [r*0.72,r*0.72],[-r*0.72,r*0.72],[r*0.72,-r*0.72],[-r*0.72,-r*0.72]
+    ];
+    for(const [dx,dy] of pontos){
+      const nx=Math.round(c.x-w/2+dx), ny=Math.round(c.y-h/2+dy);
+      if(nx<0||ny<0||nx+w>BOARD_W||ny+h>BOARD_H) continue;
+      if(!colideComAlguma(nx,ny,w,h)) return {x:nx,y:ny};
+    }
+  }
+  // quadro muito cheio: desloca um pouco para não sobrepor exatamente
+  return { x:x+Math.round(Math.random()*120), y:y+Math.round(Math.random()*120) };
+}
+
+/* Cor escolhida antes de criar. Fica guardada entre notas, então dá para criar
+   várias da mesma cor sem reescolher. */
+let corNotaEscolhida = null;
+function abrirSeletorCorNota(){
+  const p=$('notaCores'); if(!p) return;
+  if(!p.dataset.pronto){
+    p.dataset.pronto='1';
+    p.innerHTML=BOARD_COLORS.map(c=>
+      `<i data-c="${c}" style="background:${c}" title="${c}"></i>`).join('')
+      +`<i class="nota-cor-aleatoria" data-c="" title="Cor aleatória">?</i>`;
+    p.addEventListener('click',e=>{
+      const i=e.target.closest('i'); if(!i) return;
+      corNotaEscolhida = i.dataset.c || null;
+      p.querySelectorAll('i').forEach(x=>x.classList.toggle('on',x===i));
+      p.classList.remove('on');
+      addBoardNote();                 // escolheu a cor: já cria
+    });
+  }
+  p.classList.toggle('on');
+}
+
 async function addBoardNote(){
   const supa=getSupa();
-  const c=boardViewportCenter();
-  const color=BOARD_COLORS[Math.floor(Math.random()*BOARD_COLORS.length)];
-  const row={ type:'text', content:'Nova nota', x:Math.round(c.x-90), y:Math.round(c.y-60), w:200, h:130, color, created_by:U.id };
+  const color = corNotaEscolhida || BOARD_COLORS[Math.floor(Math.random()*BOARD_COLORS.length)];
+  const pos = acharLugarLivre(200,130);      // nasce onde há espaço, sem cobrir outra
+  const row={ type:'text', content:'Nova nota', x:pos.x, y:pos.y, w:200, h:130, color, created_by:U.id };
   const { data, error }=await supa.from('board_nodes').insert(row).select().maybeSingle();
   if(error){ console.error('addBoardNote error',error); toast('Erro ao criar nota: '+error.message,'err'); return; }
   boardNodes[data.id]=data; _nodeStamp[data.id]=data.updated_at||data.created_at||''; renderBoardNode(data);
@@ -390,8 +453,8 @@ async function uploadBoardImage(file){
   if(upErr){ console.error('uploadBoardImage error',upErr); toast('Erro ao enviar imagem: '+upErr.message,'err'); return; }
   const { data:pub }=supa.storage.from('board').getPublicUrl(path);
   if(!pub?.publicUrl){ toast('Erro ao gerar link da imagem','err'); return; }
-  const c=boardViewportCenter();
-  const row={ type:'image', image_url:pub.publicUrl, x:Math.round(c.x-110), y:Math.round(c.y-110), w:220, h:220, created_by:U.id };
+  const pos=acharLugarLivre(220,220);
+  const row={ type:'image', image_url:pub.publicUrl, x:pos.x, y:pos.y, w:220, h:220, created_by:U.id };
   const { data, error }=await supa.from('board_nodes').insert(row).select().maybeSingle();
   if(error){ console.error('uploadBoardImage insert error',error); toast('Erro ao adicionar imagem: '+error.message,'err'); return; }
   boardNodes[data.id]=data; _nodeStamp[data.id]=data.updated_at||data.created_at||''; renderBoardNode(data);
@@ -574,6 +637,8 @@ function redrawBoardEdges(only){
       hit.addEventListener('dblclick',ev=>{ ev.stopPropagation(); resetEdgeBend(edge.id); });
       const path=document.createElementNS(NS,'path');
       path.setAttribute('class','board-edge'); path.setAttribute('fill','none');
+      path.setAttribute('stroke','url(#boardEdgeGrad)');
+      path.setAttribute('stroke-linecap','round');
       const handle=document.createElementNS(NS,'circle'); // alça pra entortar
       handle.setAttribute('class','board-edge-handle'); handle.setAttribute('r','7');
       handle.addEventListener('pointerdown',ev=>startEdgeBend(ev,edge.id));
@@ -604,6 +669,23 @@ function ensureEdgeDefs(svg){
   if(svg.querySelector('#boardArrow')) return;
   const NS='http://www.w3.org/2000/svg';
   const defs=document.createElementNS(NS,'defs');
+  /* Degradê aplicado ao traço. Fica no <defs> e é reaproveitado por TODOS os
+     conectores — um só objeto de pintura, independente de quantas ligações
+     existam. Evitei sombra ou desfoque em SVG de propósito: são caros de
+     repintar e o quadro já sofreu com isso antes. */
+  const grad=document.createElementNS(NS,'linearGradient');
+  grad.setAttribute('id','boardEdgeGrad');
+  grad.setAttribute('gradientUnits','userSpaceOnUse');
+  grad.setAttribute('x1','0'); grad.setAttribute('y1','0');
+  grad.setAttribute('x2','0'); grad.setAttribute('y2','1200');
+  [['0%','rgba(150,255,200,.95)'],
+   ['45%','rgba(120,220,235,.85)'],
+   ['100%','rgba(180,170,255,.85)']].forEach(([off,cor])=>{
+    const s=document.createElementNS(NS,'stop');
+    s.setAttribute('offset',off); s.setAttribute('stop-color',cor);
+    grad.appendChild(s);
+  });
+  defs.appendChild(grad);
   const m=document.createElementNS(NS,'marker');
   m.setAttribute('id','boardArrow'); m.setAttribute('viewBox','0 0 10 10');
   m.setAttribute('refX','9'); m.setAttribute('refY','5');
@@ -620,10 +702,26 @@ function startEdgeBend(e,id){
   boardSelectedEdge=id;
   const move=ev=>{
     const edge=boardEdges[id]; if(!edge) return;
-    const geo=edgeGeometry(edge); if(!geo) return;
     const p=boardPoint(ev.clientX,ev.clientY);
-    // a alça fica no ponto médio da curva; o controle precisa ir ao dobro da distância
-    edge.bend_x=(p.x-geo.mx)*2; edge.bend_y=(p.y-geo.my)*2;
+    /* BUG CORRIGIDO — a alça fugia para longe do dedo.
+       Eu calculava a curvatura a partir do CENTRO das notas, mas a curva é
+       desenhada entre as BORDAS delas. O ponto médio de uma curva é
+         M = ¼·início + ½·controle + ¼·fim
+       e eu tratava o meio dos centros como se fosse esse M. Como as bordas ficam
+       deslocadas em relação aos centros, a alça sempre nascia fora do lugar — e
+       quanto mais eu arrastava, mais ela escapava.
+       Agora resolvo o controle de verdade a partir da fórmula acima:
+         controle = 2·M − (início + fim)/2
+       Como as bordas dependem do próprio controle, repito o cálculo três vezes;
+       isso converge de imediato e a alça passa a acompanhar o dedo com exatidão. */
+    let geo=edgeGeometry(edge); if(!geo) return;
+    for(let i=0;i<3;i++){
+      const cx = 2*p.x - (geo.p1.x + geo.p2.x)/2;
+      const cy = 2*p.y - (geo.p1.y + geo.p2.y)/2;
+      edge.bend_x = cx - geo.mx;
+      edge.bend_y = cy - geo.my;
+      geo = edgeGeometry(edge) || geo;
+    }
     scheduleEdgeRedraw();
   };
   const up=()=>{
