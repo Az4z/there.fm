@@ -14,7 +14,8 @@ MANIFEST = 'android/app/src/main/AndroidManifest.xml'
 
 def copiar_plugin():
     os.makedirs(PKG, exist_ok=True)
-    for arquivo in ('TheaterPlugin.java', 'MainActivity.java'):
+    for arquivo in ('TheaterPlugin.java', 'MainActivity.java',
+                    'AdBlock.java', 'PlaybackService.java'):
         origem = os.path.join('native', arquivo)
         if not os.path.exists(origem):
             print('ERRO: não encontrei', origem); sys.exit(1)
@@ -65,6 +66,29 @@ def configurar_assinatura():
     with open(GRADLE, 'w') as f: f.write(s)
     print('assinatura fixa configurada')
 
+def registrar_servico():
+    """
+    Declara o serviço de reprodução no manifesto.
+
+    Sem esta declaração o Android recusa iniciar o serviço e o áudio continua
+    morrendo ao sair da tela — o código Java sozinho não basta, o sistema exige
+    que o serviço esteja declarado.
+    """
+    with open(MANIFEST) as f: s = f.read()
+    if 'PlaybackService' in s:
+        print('serviço já declarado'); return
+    servico = (
+        '        <service\n'
+        '            android:name=".PlaybackService"\n'
+        '            android:enabled="true"\n'
+        '            android:exported="false"\n'
+        '            android:foregroundServiceType="mediaPlayback" />\n'
+    )
+    # entra logo antes do fechamento de <application>
+    s = s.replace('</application>', servico + '    </application>', 1)
+    with open(MANIFEST, 'w') as f: f.write(s)
+    print('serviço de segundo plano declarado')
+
 def adicionar_permissoes():
     with open(MANIFEST) as f: s = f.read()
     perms = [
@@ -87,4 +111,5 @@ if __name__ == '__main__':
     adicionar_dependencia()
     configurar_assinatura()
     adicionar_permissoes()
+    registrar_servico()
     print('projeto Android preparado')
