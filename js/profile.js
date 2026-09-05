@@ -142,6 +142,114 @@ function updateFramePreview(){
     wrap.appendChild(fr);
   }
 }
+/* ══════════════════════════════════════════════════════════════════
+   BORDAS DO CARD DE PERFIL
+
+   Imagens decorativas no topo e no rodapé do card. Seguem o mesmo modelo das
+   molduras de avatar: a lista vem do banco (tabela `border_presets`), então dá
+   para acrescentar bordas novas sem tocar no código.
+
+   Cada borda guarda três ajustes — tamanho, deslocamento horizontal e vertical —
+   salvos no perfil. Como ficam no banco, todo mundo que abrir o perfil vê a
+   mesma coisa.
+   ══════════════════════════════════════════════════════════════════ */
+let BORDER_PRESETS=[];
+let bordaAtual='topo';        // qual borda está sendo editada
+
+async function loadBorderPresets(){
+  try{
+    const { data, error }=await getSupa().from('border_presets')
+      .select('url').eq('active',true).order('sort_order',{ascending:true});
+    if(error) throw error;
+    BORDER_PRESETS=(data||[]).map(r=>r.url).filter(Boolean);
+    localStorage.setItem('tfm_bordas_cache',JSON.stringify(BORDER_PRESETS));
+  }catch(e){
+    console.warn('Bordas: usando cópia local —',e.message);
+    try{ BORDER_PRESETS=JSON.parse(localStorage.getItem('tfm_bordas_cache')||'[]'); }
+    catch(_){ BORDER_PRESETS=[]; }
+  }
+}
+/* Lê e escreve os ajustes da borda em edição, sem repetir código para topo e
+   rodapé — os campos seguem o padrão border_topo_* e border_baixo_*. */
+function bordaCampos(qual){
+  const p = (qual==='topo') ? 'border_top' : 'border_bottom';
+  return { url:p, escala:p+'_scale', x:p+'_x', y:p+'_y' };
+}
+function bordaAba(qual){
+  bordaAtual=qual;
+  const t=$('bordaAbaTopo'), b=$('bordaAbaBaixo');
+  if(t) t.classList.toggle('on',qual==='topo');
+  if(b) b.classList.toggle('on',qual==='baixo');
+  bordaCarregarControles();
+  buildBorderGallery();
+}
+function bordaCarregarControles(){
+  const c=bordaCampos(bordaAtual);
+  const e=$('bordaEscala'), x=$('bordaX'), y=$('bordaY');
+  if(e) e.value=Math.round((U[c.escala]||1)*100);
+  if(x) x.value=U[c.x]||0;
+  if(y) y.value=U[c.y]||0;
+  const lbl=$('bordaEscalaVal'); if(lbl) lbl.textContent=(e?e.value:100)+'%';
+}
+function bordaAjuste(){
+  const c=bordaCampos(bordaAtual);
+  const e=$('bordaEscala'), x=$('bordaX'), y=$('bordaY');
+  U[c.escala]=(parseInt(e?e.value:100,10)||100)/100;
+  U[c.x]=parseInt(x?x.value:0,10)||0;
+  U[c.y]=parseInt(y?y.value:0,10)||0;
+  const lbl=$('bordaEscalaVal'); if(lbl) lbl.textContent=Math.round(U[c.escala]*100)+'%';
+  renderBordaPreview();
+}
+function bordaRemover(){
+  const c=bordaCampos(bordaAtual);
+  U[c.url]=null;
+  renderBordaPreview(); buildBorderGallery();
+}
+function buildBorderGallery(){
+  const box=$('bordaGaleria'); if(!box) return;
+  const c=bordaCampos(bordaAtual);
+  const atual=U[c.url]||null;
+  box.innerHTML='';
+  const nada=document.createElement('div');
+  nada.className='borda-item'+(!atual?' on':'');
+  nada.textContent='Nenhuma';
+  nada.onclick=()=>{ U[c.url]=null; renderBordaPreview(); buildBorderGallery(); };
+  box.appendChild(nada);
+  BORDER_PRESETS.forEach(url=>{
+    const d=document.createElement('div');
+    d.className='borda-item'+(atual===url?' on':'');
+    d.onclick=()=>{ U[c.url]=url; renderBordaPreview(); buildBorderGallery(); };
+    const img=document.createElement('img'); img.src=url; img.loading='lazy';
+    d.appendChild(img); box.appendChild(d);
+  });
+}
+/* Aplica uma borda a um elemento de imagem. Usado tanto na pré-visualização
+   quanto no perfil real, para os dois nunca divergirem. */
+function aplicarBorda(el,url,escala,dx,dy){
+  if(!el) return;
+  if(!url){ el.style.display='none'; el.removeAttribute('src'); return; }
+  el.style.display='block';
+  if(el.getAttribute('src')!==url) el.setAttribute('src',url);
+  el.style.transform=`translate(calc(-50% + ${dx||0}px), ${dy||0}px) scale(${escala||1})`;
+}
+function renderBordaPreview(){
+  aplicarBorda($('bpvBordaTopo'),  U.border_top,    U.border_top_scale,    U.border_top_x,    U.border_top_y);
+  aplicarBorda($('bpvBordaBaixo'), U.border_bottom, U.border_bottom_scale, U.border_bottom_x, U.border_bottom_y);
+  const av=$('bpvAvatar'); if(av) av.innerHTML=avatarHTML(U);
+  const nm=$('bpvNome'); if(nm) nm.textContent=($('sNm')&&$('sNm').value.trim())||U.name||'Seu nome';
+  const us=$('bpvUser'); const u=($('sUname')&&$('sUname').value.trim())||U.username||'';
+  if(us) us.textContent=u?('@'+u):'';
+  const bio=$('bpvBio'); if(bio) bio.textContent=($('sBio')&&$('sBio').value.trim())||U.bio||'';
+  const bn=$('bpvBanner');
+  if(bn) bn.style.background=U.banner?`url('${U.banner}') center/cover`:'linear-gradient(90deg,#181818,#242424)';
+}
+async function initBordas(){
+  await loadBorderPresets();
+  bordaCarregarControles();
+  buildBorderGallery();
+  renderBordaPreview();
+}
+
 /* Molduras — agora vêm da tabela `frame_presets` no Supabase, não mais do código.
    Basta inserir uma linha na tabela (url + ordem) que ela aparece aqui automaticamente,
    sem precisar mexer em nada e sem precisar pedir pra mim toda vez. Guardamos um cache
@@ -209,11 +317,19 @@ async function saveSettings(){
   if(pendingAvatarFile){ const path=`${user.id}/avatar-${Date.now()}.png`; const url=await uploadProfileFile(pendingAvatarFile,path); if(url){ U.photo=url; } else { toast('Falha ao enviar a foto de perfil — mantendo a anterior','err'); } pendingAvatarFile=null; }
   if(pendingBannerFile){ const path=`${user.id}/banner-${Date.now()}.png`; const url=await uploadProfileFile(pendingBannerFile,path); if(url){ U.banner=url; } else { toast('Falha ao enviar o banner — mantendo o anterior','err'); } pendingBannerFile=null; }
 
-  const payload={ id:user.id, name:U.name, email:U.email, username:U.username, bio:U.bio, color:U.color, card_tint:tintMode(U.card_tint), name_color:U.name_color||null, name_mode:U.name_mode||'auto', photo:U.photo||null, banner:U.banner||null, frame:U.frame||null, frame_scale:U.frame_scale||1, frame_x:U.frame_x||0, frame_y:U.frame_y||0 };
+  const payload={ id:user.id, name:U.name, email:U.email, username:U.username, bio:U.bio, color:U.color, card_tint:tintMode(U.card_tint), name_color:U.name_color||null, name_mode:U.name_mode||'auto',
+    border_top:U.border_top||null,        border_top_scale:U.border_top_scale||1,
+    border_top_x:U.border_top_x||0,       border_top_y:U.border_top_y||0,
+    border_bottom:U.border_bottom||null,  border_bottom_scale:U.border_bottom_scale||1,
+    border_bottom_x:U.border_bottom_x||0, border_bottom_y:U.border_bottom_y||0,
+    photo:U.photo||null, banner:U.banner||null, frame:U.frame||null, frame_scale:U.frame_scale||1, frame_x:U.frame_x||0, frame_y:U.frame_y||0 };
   let { data, error }=await supa.from('profiles').upsert(payload,{onConflict:'id'}).select().maybeSingle();
-  if(error && /card_tint|name_color|name_mode/.test(error.message||'')){
+  if(error && /card_tint|name_color|name_mode|border_/.test(error.message||'')){
     // banco ainda sem a coluna card_tint: salva o resto normalmente em vez de perder tudo
-    const { card_tint, name_color, name_mode, ...rest }=payload;
+    const { card_tint, name_color, name_mode,
+            border_top, border_top_scale, border_top_x, border_top_y,
+            border_bottom, border_bottom_scale, border_bottom_x, border_bottom_y,
+            ...rest }=payload;
     ({ data, error }=await supa.from('profiles').upsert(rest,{onConflict:'id'}).select().maybeSingle());
     if(!error) console.warn('Colunas card_tint/name_color/name_mode ausentes — adicione-as para salvar essas personalizações.');
   }
@@ -242,6 +358,10 @@ async function openProfile(uid){
     _mbox.style.borderColor=`rgba(${_r},${_g},${_b},.35)`;
     _mbox.style.boxShadow=`0 18px 50px rgba(0,0,0,.6),0 0 0 1px rgba(${_r},${_g},${_b},.16)`;
   }
+  /* Bordas decorativas do card — mostradas para QUEM abrir o perfil, com os
+     mesmos ajustes que a pessoa escolheu na pré-visualização. */
+  aplicarBorda($('pubBordaTopo'),  p.border_top,    p.border_top_scale,    p.border_top_x,    p.border_top_y);
+  aplicarBorda($('pubBordaBaixo'), p.border_bottom, p.border_bottom_scale, p.border_bottom_x, p.border_bottom_y);
   $('pubBanner').style.backgroundImage=p.banner?`url('${p.banner}')`:'none';
   if(!p.banner) $('pubBanner').style.background=`linear-gradient(100deg,rgba(${_r},${_g},${_b},.7),rgba(${_r},${_g},${_b},.2))`;
   $('pubAvatar').style.position='relative'; $('pubAvatar').style.overflow='visible';

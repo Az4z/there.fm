@@ -111,6 +111,7 @@ async function doLogoutAuth(){
 function openSettings(){
   pendingAvatarFile=null; pendingBannerFile=null; // evita reenviar um arquivo antigo de uma edição cancelada anteriormente
   loadFramePresets().then(buildFramePresets); // refaz a busca sempre que abre — molduras novas aparecem sem precisar recarregar a página
+  initBordas();                               // bordas do card + pré-visualização
   $('sNm').value=U.name||''; $('sEm').value=U.email||'';
   if($('sUname')) $('sUname').value=U.username||'';
   if($('sBio')) $('sBio').value=U.bio||'';

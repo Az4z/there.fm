@@ -196,7 +196,11 @@ function initMusicYT(uid,vid){
     togglePlay(){if(_playing)proxy.pauseVideo();else proxy.playVideo();},
     seekTo(t){_base=t;_wall=Date.now();msg('seekTo',[t,true]);},
     loadVideoById(newVid){ suppressSync(uid,2000); _base=0;_wall=Date.now();_dur=0;_playing=true;desiredPlaying[uid]=true; msg('loadVideoById',[newVid]); setDiscPlaying(uid,true); setPlayIcon(uid,true); },
-    getCurrentTime(){return _playing?_base+(Date.now()-_wall)/1000:_base;},
+    getCurrentTime(){
+      const t = _playing ? _base+(Date.now()-_wall)/1000 : _base;
+      // nunca ultrapassa a duração: sem isto o contador seguia além do fim
+      return (_dur>0 && t>_dur) ? _dur : t;
+    },
     getDuration(){return _dur;},
     isPlaying(){return _playing;},
     setVolume(v){ msg('setVolume',[Math.round(Math.max(0,Math.min(1,v))*100)]); }
@@ -217,7 +221,22 @@ function initMusicYT(uid,vid){
       const d=JSON.parse(ev.data);
       if(d.event==='onStateChange'){
         if(d.info===1){_base=proxy.getCurrentTime();_wall=Date.now();_playing=true;desiredPlaying[uid]=true;setDiscPlaying(uid,true);setPlayIcon(uid,true);if(!isSuppressed(uid))broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:_base,at:Date.now()});}
-        else if(d.info===2||d.info===0){_base=proxy.getCurrentTime();_playing=false;desiredPlaying[uid]=false;setDiscPlaying(uid,false);setPlayIcon(uid,false);if(!isSuppressed(uid))broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:_base,at:Date.now()});}
+        else if(d.info===2){   // pausada pelo usuário
+          _base=proxy.getCurrentTime();_playing=false;desiredPlaying[uid]=false;
+          setDiscPlaying(uid,false);setPlayIcon(uid,false);
+          if(!isSuppressed(uid))broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:_base,at:Date.now()});
+        }
+        else if(d.info===0){   // ACABOU
+          /* O fim era tratado como uma pausa qualquer. Como o tempo é calculado
+             pelo relógio (o player não avisa a cada segundo), ele seguia subindo
+             depois do fim e passava da duração — daí a contagem que não parava e
+             o final "errado". Aqui travamos exatamente na duração. */
+          _playing=false; desiredPlaying[uid]=false;
+          _base = _dur>0 ? _dur : proxy.getCurrentTime();
+          setDiscPlaying(uid,false); setPlayIcon(uid,false);
+          const el=$('mt-'+uid); if(el) el.textContent=fmtTime(_base)+' / '+fmtTime(_dur);
+          if(!isSuppressed(uid))broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:_base,at:Date.now()});
+        }
       }
       if(d.event==='onError'){ toast('Essa música não pôde ser reproduzida (indisponível/bloqueada)','err'); }
       if(!_playing&&d.info?.currentTime!=null)_base=d.info.currentTime;
