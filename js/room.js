@@ -56,14 +56,43 @@ function drawGrid(){
   cv.width=w.clientWidth; cv.height=w.clientHeight;
   const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
 }
+/* Redimensiona a área de desenho SEM perder o traço.
+   Dois problemas foram corrigidos aqui:
+
+   1. Ao abrir o teclado, a área encolhe. O código antigo copiava os pixels e os
+      recolocava na posição original — o que estivesse abaixo da nova altura era
+      simplesmente cortado, e ao fechar o teclado essa parte não voltava mais.
+      Agora o conteúdo é redesenhado ESCALADO para o novo tamanho, então nada se
+      perde.
+
+   2. O teclado dispara redimensionamento a cada abertura e fechamento. Reescalar
+      toda vez degrada o traço aos poucos. Por isso ignoramos a mudança enquanto
+      há algo sendo digitado: a altura volta ao normal quando o teclado fecha. */
+function tecladoAberto(){
+  const a=document.activeElement;
+  if(!a) return false;
+  const tag=(a.tagName||'').toLowerCase();
+  return tag==='input' || tag==='textarea' || a.isContentEditable===true;
+}
 function resizeDC(){
   const dc=$('drawCanvas'),cw=$('cw'); if(!dc||!cw||!cw.clientWidth)return;
   const nw=cw.clientWidth,nh=cw.clientHeight;
   if(dc.width===nw&&dc.height===nh)return;
-  let saved=null;
-  if(dc.width>0&&dc.height>0){ try{saved=dc.getContext('2d').getImageData(0,0,dc.width,dc.height);}catch(e){} }
+
+  // mudança causada pelo teclado (só a altura muda): não mexe no desenho
+  if(dc.width===nw && dc.height>0 && tecladoAberto()) return;
+
+  let temp=null;
+  if(dc.width>0&&dc.height>0){
+    try{
+      temp=document.createElement('canvas');
+      temp.width=dc.width; temp.height=dc.height;
+      temp.getContext('2d').drawImage(dc,0,0);
+    }catch(e){ temp=null; }
+  }
   dc.width=nw; dc.height=nh;
-  if(saved)dc.getContext('2d').putImageData(saved,0,0);
+  // redesenha escalado: preserva o traço inteiro em vez de cortar
+  if(temp){ try{ dc.getContext('2d').drawImage(temp,0,0,nw,nh); }catch(e){} }
 }
 
 /* ── AVATAR ── */
@@ -587,7 +616,16 @@ function applyState(msg){
   });
   if(msg.drawImg?.length>100){
     const dc=$('drawCanvas'),ctx=dc.getContext('2d'),img=new Image();
-    img.onload=()=>ctx.drawImage(img,0,0,dc.width,dc.height); img.src=msg.drawImg;
+    img.onload=()=>{
+      /* LIMPA ANTES DE DESENHAR — era esta a causa do desenho "duplicado" ao
+         reconectar. O desenho recebido era pintado POR CIMA do que já estava na
+         tela; como o tamanho da área pode diferir entre os aparelhos, a cópia
+         não caía exatamente sobre a original e aparecia aquele efeito de traço
+         dobrado e borrado. */
+      ctx.clearRect(0,0,dc.width,dc.height);
+      ctx.drawImage(img,0,0,dc.width,dc.height);
+    };
+    img.src=msg.drawImg;
   }
 }
 function applyAdd(item){ if(!item||qs('[data-item-id="'+item.id+'"]'))return; createItemFromData(item,$('items')); }

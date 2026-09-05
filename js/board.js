@@ -91,6 +91,7 @@ async function openBoard(){
   startBoardClock();
 }
 function closeBoard(){
+  document.body.classList.remove('board-digitando');
   $('boardPanel').classList.remove('on');
   document.body.classList.remove('board-open');
   stopBoardPolling();
@@ -317,7 +318,11 @@ function renderBoardNode(n){
     const del=el.querySelector('[data-del]'); if(del) del.addEventListener('click',e=>{ e.stopPropagation(); deleteBoardNode(n.id); });
     if(!isImg){
       const body=el.querySelector('.board-node-body');
-      body.addEventListener('blur',()=>saveBoardNodeContent(n.id,body.innerText));
+      body.addEventListener('focus',()=>document.body.classList.add('board-digitando'));
+      body.addEventListener('blur',()=>{
+        document.body.classList.remove('board-digitando');
+        saveBoardNodeContent(n.id,body.innerText);
+      });
       body.addEventListener('pointerdown',e=>e.stopPropagation());
       // cresce sozinha conforme o texto — o problema antigo de "texto grande e a nota não acompanha"
       body.addEventListener('input',()=>autoGrowNode(n.id));
@@ -635,6 +640,13 @@ function redrawBoardEdges(only){
       hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width','18');
       hit.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); boardSelectedEdge=edge.id; scheduleEdgeRedraw(); });
       hit.addEventListener('dblclick',ev=>{ ev.stopPropagation(); resetEdgeBend(edge.id); });
+      /* Duas camadas formam o efeito de vidro, sem usar desfoque (que é caro):
+         uma faixa larga e translúcida por baixo, e o traço colorido por cima.
+         A de baixo dá o contorno suave; a de cima dá a cor. */
+      const glass=document.createElementNS(NS,'path');
+      glass.setAttribute('class','board-edge-glass'); glass.setAttribute('fill','none');
+      glass.setAttribute('stroke','url(#boardEdgeGlass)');
+      glass.setAttribute('stroke-linecap','round');
       const path=document.createElementNS(NS,'path');
       path.setAttribute('class','board-edge'); path.setAttribute('fill','none');
       path.setAttribute('stroke','url(#boardEdgeGrad)');
@@ -649,11 +661,21 @@ function redrawBoardEdges(only){
       dt.setAttribute('font-size','11'); dt.setAttribute('fill','#fff'); dt.textContent='×';
       del.appendChild(dc); del.appendChild(dt);
       del.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); deleteBoardEdge(edge.id); });
-      svg.appendChild(hit); svg.appendChild(path); svg.appendChild(handle); svg.appendChild(del);
-      g=_edgeEls[edge.id]={hit,path,handle,del};
+      svg.appendChild(hit); svg.appendChild(glass); svg.appendChild(path);
+      svg.appendChild(handle); svg.appendChild(del);
+      g=_edgeEls[edge.id]={hit,glass,path,handle,del};
     }
-    const d=`M ${geo.p1.x} ${geo.p1.y} Q ${geo.cx} ${geo.cy} ${geo.p2.x} ${geo.p2.y}`;
+    /* O traço termina um pouco ANTES do destino. Sem isso a linha continuava por
+       baixo da seta e a curva reaparecia depois dela, deixando aquela sobra feia
+       na ponta. Recuamos o fim na direção de onde a curva chega. */
+    const RECUO=11;
+    let fx=geo.p2.x, fy=geo.p2.y;
+    const vx=geo.p2.x-geo.cx, vy=geo.p2.y-geo.cy;
+    const comp=Math.hypot(vx,vy);
+    if(comp>RECUO){ fx-=(vx/comp)*RECUO; fy-=(vy/comp)*RECUO; }
+    const d=`M ${geo.p1.x} ${geo.p1.y} Q ${geo.cx} ${geo.cy} ${fx} ${fy}`;
     g.path.setAttribute('d',d); g.hit.setAttribute('d',d);
+    if(g.glass) g.glass.setAttribute('d',d);
     g.path.setAttribute('marker-end','url(#boardArrow)');
     g.path.classList.toggle('sel',sel);
     // alça aparece ao passar o mouse/selecionar; o ponto da curva em t=0.5
@@ -686,13 +708,29 @@ function ensureEdgeDefs(svg){
     grad.appendChild(s);
   });
   defs.appendChild(grad);
+  /* Degradê do contorno de vidro: branco e tons frios bem baixos. */
+  const glassGrad=document.createElementNS(NS,'linearGradient');
+  glassGrad.setAttribute('id','boardEdgeGlass');
+  glassGrad.setAttribute('gradientUnits','userSpaceOnUse');
+  glassGrad.setAttribute('x1','0'); glassGrad.setAttribute('y1','0');
+  glassGrad.setAttribute('x2','0'); glassGrad.setAttribute('y2','1200');
+  [['0%','rgba(255,255,255,.30)'],
+   ['40%','rgba(190,235,255,.18)'],
+   ['70%','rgba(255,205,240,.16)'],
+   ['100%','rgba(210,200,255,.22)']].forEach(([off,cor])=>{
+    const s=document.createElementNS(NS,'stop');
+    s.setAttribute('offset',off); s.setAttribute('stop-color',cor);
+    glassGrad.appendChild(s);
+  });
+  defs.appendChild(glassGrad);
   const m=document.createElementNS(NS,'marker');
   m.setAttribute('id','boardArrow'); m.setAttribute('viewBox','0 0 10 10');
   m.setAttribute('refX','9'); m.setAttribute('refY','5');
   m.setAttribute('markerWidth','6'); m.setAttribute('markerHeight','6');
   m.setAttribute('orient','auto-start-reverse');
   const p=document.createElementNS(NS,'path');
-  p.setAttribute('d','M 0 0 L 10 5 L 0 10 z'); p.setAttribute('fill','rgba(120,235,170,.9)');
+  // ponta CHEIA e opaca: cobre o fim do traço em vez de deixá-lo transparecer
+  p.setAttribute('d','M 0 0 L 10 5 L 0 10 z'); p.setAttribute('fill','#9fe8bd');
   m.appendChild(p); defs.appendChild(m); svg.appendChild(defs);
 }
 /* entortar o conector arrastando a alça */
