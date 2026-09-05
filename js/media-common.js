@@ -982,7 +982,19 @@ function updateVolumeUI(){
   const bar=$('volBar'); if(bar) bar.classList.toggle('muted',mediaMuted||v<=0);
 }
 /* arrastar no trilho vertical (o zero fica embaixo, como qualquer mixer) */
+/* Mostrar/ocultar o controle de volume. Começa SEMPRE recolhido ao entrar na
+   sala, e a escolha é local: esconder na sua tela não esconde na dos outros. */
+let _volAberto=false;
+function toggleVolumeBar(){
+  _volAberto=!_volAberto;
+  const w=$('volWrap'); if(w) w.classList.toggle('on',_volAberto);
+}
+function resetVolumeBar(){
+  _volAberto=false;
+  const w=$('volWrap'); if(w) w.classList.remove('on');
+}
 function initVolumeControl(){
+  resetVolumeBar();                     // toda sala começa com o volume recolhido
   const track=$('volTrack'); if(!track||track.dataset.ready) return;
   track.dataset.ready='1';
   let dragging=false, _volRAF=null, _volPendingY=null;

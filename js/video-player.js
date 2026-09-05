@@ -44,7 +44,7 @@ function mkMediaVid(kind,source,x,y,id,container,broadcastIt){
   const extra=0;   // a faixa 'a seguir' começa recolhida; o card só cresce quando ela abre
   Object.assign(w.style,{position:'absolute',left:x+'px',top:y+'px',zIndex:++zTop,width:VID_W+'px',height:(HEAD+VID_H+CTRL+extra)+'px',display:'flex',flexDirection:'column'});
   const href=kindOpenHref(kind,source);
-  w.innerHTML=`<div class="ch" style="height:${HEAD}px;flex-shrink:0"><span class="ct">▶ ${kindLabel(kind,source)}</span><div style="display:flex;align-items:center;gap:.38rem"><span class="vsync">SYNC</span>${href?`<a class="vcbtn" href="${href}" target="_blank" rel="noopener" title="Abrir original" style="line-height:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></a>`:''}<button class="cx" onclick="removeEl(this.closest('.card'))">×</button></div></div><div id="ypc-${uid}" class="ypc" style="flex:1;min-height:0;width:100%;background:#000;overflow:hidden;position:relative"></div><div class="vctrl" style="height:${CTRL}px;flex-shrink:0"><button class="vcbtn" onclick="vPlay('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg></button><button class="vcbtn" onclick="vPause('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',-10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 100-.49"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 110-.49"/></svg></button><span class="vtime" id="vt-${uid}">0:00</span><button class="vcbtn vc-embed" onclick="openEmbedFor('${uid}')" title="Trocar / incorporar outro vídeo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button><button class="vcbtn vc-upnext" id="vnb-${uid}" onclick="toggleUpNext('${uid}')" title="Mostrar/ocultar próximos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="18 15 12 9 6 15"/></svg></button></div><div class="vupnext" id="vun-${uid}"></div>`;
+  w.innerHTML=`<div class="ch" style="height:${HEAD}px;flex-shrink:0"><span class="ct">▶ ${kindLabel(kind,source)}</span><div style="display:flex;align-items:center;gap:.38rem"><span class="vsync">SYNC</span>${href?`<a class="vcbtn" href="${href}" target="_blank" rel="noopener" title="Abrir original" style="line-height:0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg></a>`:''}<button class="cx" onclick="removeEl(this.closest('.card'))">×</button></div></div><div id="ypc-${uid}" class="ypc" style="flex:1;min-height:0;width:100%;background:#000;overflow:hidden;position:relative"></div><div class="vbar" id="vbar-${uid}" onpointerdown="vBarSeek(event,'${uid}')" title="Arraste para navegar"><div class="vbar-fill" id="vbf-${uid}"></div><span class="vbar-knob" id="vbk-${uid}"></span></div><div class="vctrl" style="height:${CTRL}px;flex-shrink:0"><button class="vcbtn" onclick="vPlay('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg></button><button class="vcbtn" onclick="vPause('${uid}')"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',-10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 100-.49"/></svg></button><button class="vcbtn" onclick="vSeek('${uid}',10)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 110-.49"/></svg></button><span class="vtime" id="vt-${uid}">0:00</span><span class="vtime vtime-dur" id="vd-${uid}"></span><button class="vcbtn vc-embed" onclick="openEmbedFor('${uid}')" title="Trocar / incorporar outro vídeo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></button><button class="vcbtn vc-upnext vc-big" id="vnb-${uid}" onclick="toggleUpNext('${uid}')" title="Mostrar/ocultar próximos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="18 15 12 9 6 15"/></svg></button></div><div class="vupnext" id="vun-${uid}"></div>`;
   const rzh=document.createElement('div'); rzh.className='rzh'; w.appendChild(rzh);
   container.appendChild(w); els.push(w);
   if(broadcastIt)broadcast({type:'ADD_ITEM',item:{type:'video',kind,source,x,y,id}});
@@ -127,7 +127,11 @@ function initYT(uid,vid,iw,ih,_retries){
         _vtTimers[uid]=setInterval(()=>{
           if(document.hidden)return;              // não gasta CPU com a aba em segundo plano
           const el=$('vt-'+uid); if(!el){ clearInterval(_vtTimers[uid]); delete _vtTimers[uid]; return; }
-          try{el.textContent=fmtTime(p.getCurrentTime()||0);}catch(e){}
+          try{
+            const t=p.getCurrentTime()||0;
+            el.textContent=fmtTime(t);
+            atualizarBarra(uid,t,(p.getDuration&&p.getDuration())||0);
+          }catch(e){}
         },500); },
       onStateChange:e=>{
         if(isSuppressed(uid))return; // eco de uma sync que acabamos de aplicar — ignora, evita loop
@@ -152,7 +156,11 @@ function initVimeo(uid,vid,iw,ih,_retries){
   desiredPlaying[uid]=false;
   player.on('play',()=>{ if(isSuppressed(uid))return; _playing=true; desiredPlaying[uid]=true; broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:_cur,at:Date.now()}); });
   player.on('pause',()=>{ if(isSuppressed(uid))return; _playing=false; desiredPlaying[uid]=false; broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:_cur,at:Date.now()}); });
-  player.on('timeupdate',d=>{ _cur=d.seconds||0; _dur=d.duration||0; const el=$('vt-'+uid); if(el)el.textContent=fmtTime(_cur); });
+  player.on('timeupdate',d=>{
+    _cur=d.seconds||0; _dur=d.duration||0;
+    const el=$('vt-'+uid); if(el)el.textContent=fmtTime(_cur);
+    atualizarBarra(uid,_cur,_dur);
+  });
   player.on('error',()=>{ toast('Esse vídeo do Vimeo não pôde ser reproduzido','err'); });
   ytPlrs[uid]={
     playVideo(){ desiredPlaying[uid]=true; player.play().catch(()=>{}); },
@@ -180,6 +188,19 @@ function initTwitch(uid,source,iw,ih,_retries){
   const player=new Twitch.Player(cont.id,opts);
   let _playing=false;
   desiredPlaying[uid]=false;
+  /* A Twitch não avisa o tempo sozinha, então perguntamos periodicamente.
+     Sem isto o card dela ficaria sem tempo e sem barra de progresso. */
+  clearInterval(_vtTimers[uid]);
+  _vtTimers[uid]=setInterval(()=>{
+    if(document.hidden) return;
+    const el=$('vt-'+uid);
+    if(!el){ clearInterval(_vtTimers[uid]); delete _vtTimers[uid]; return; }
+    try{
+      const t=player.getCurrentTime()||0, d=player.getDuration()||0;
+      el.textContent=fmtTime(t);
+      atualizarBarra(uid,t,d);
+    }catch(e){}
+  },500);
   player.addEventListener(Twitch.Player.PLAY,()=>{ if(isSuppressed(uid))return; _playing=true; desiredPlaying[uid]=true; try{broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:player.getCurrentTime()||0,at:Date.now()});}catch(e){} });
   player.addEventListener(Twitch.Player.PAUSE,()=>{ if(isSuppressed(uid))return; _playing=false; desiredPlaying[uid]=false; try{broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:player.getCurrentTime()||0,at:Date.now()});}catch(e){} });
   ytPlrs[uid]={
@@ -215,7 +236,10 @@ function initHtml5(uid,src,cont){
   vidEl.addEventListener('play',()=>{ if(isSuppressed(uid))return; desiredPlaying[uid]=true; broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:vidEl.currentTime,at:Date.now()}); });
   vidEl.addEventListener('pause',()=>{ if(isSuppressed(uid))return; desiredPlaying[uid]=false; broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:vidEl.currentTime,at:Date.now()}); });
   vidEl.addEventListener('seeked',()=>{ if(isSuppressed(uid))return; broadcast({type:'VID_SYNC',uid_player:uid,action:vidEl.paused?'pause':'play',time:vidEl.currentTime,at:Date.now()}); });
-  vidEl.addEventListener('timeupdate',()=>{ const el=$('vt-'+uid); if(el)el.textContent=fmtTime(vidEl.currentTime||0); });
+  vidEl.addEventListener('timeupdate',()=>{
+    const el=$('vt-'+uid); if(el)el.textContent=fmtTime(vidEl.currentTime||0);
+    atualizarBarra(uid,vidEl.currentTime||0,vidEl.duration||0);
+  });
   /* Erro num arquivo direto quase sempre significa que o CDN do site recusou a
      requisição por vir de outro domínio (proteção de hotlink). Explicamos isso e
      apontamos o caminho que funciona, em vez de só dizer "não carregou". */
@@ -360,6 +384,62 @@ function applyVidTick(uidPlayer,time,playing,sentAt){
 function restoreRate(uid){
   clearTimeout(_rateFix[uid]); delete _rateFix[uid];
   const p=ytPlrs[uid]; if(p&&p.setRate){ try{ p.setRate(1); }catch(e){} }
+}
+/* ══════════════════════════════════════════════════════════════════
+   BARRA DE PROGRESSO — sincronizada.
+
+   Arrastar a barra é uma ação como qualquer outra: o tempo escolhido é aplicado
+   aqui e anunciado para a sala, exatamente como os botões de avançar e voltar.
+   O relógio da sessão continua corrigindo a deriva depois disso, então todo
+   mundo converge para o mesmo instante mesmo com internet diferente.
+   ══════════════════════════════════════════════════════════════════ */
+function vBarSeek(ev,uid){
+  const p=ytPlrs[uid]; if(!p) return;
+  const barra=$('vbar-'+uid); if(!barra) return;
+  const dur=(p.getDuration&&p.getDuration())||0;
+  if(!dur||!isFinite(dur)) return;          // sem duração não há como posicionar
+
+  const aplicar=e=>{
+    const r=barra.getBoundingClientRect();
+    const frac=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+    const t=frac*dur;
+    atualizarBarra(uid,t,dur);              // resposta imediata ao dedo
+    return t;
+  };
+  ev.preventDefault();
+  try{ barra.setPointerCapture(ev.pointerId); }catch(e){}
+  let tempoFinal=aplicar(ev);
+
+  const mover=e=>{ tempoFinal=aplicar(e); };
+  const soltar=()=>{
+    barra.removeEventListener('pointermove',mover);
+    barra.removeEventListener('pointerup',soltar);
+    barra.removeEventListener('pointercancel',soltar);
+    try{
+      suppressSync(uid,1200);               // evita o eco do próprio seek
+      p.seekTo(tempoFinal,true);
+      broadcast({type:'VID_SYNC',uid_player:uid,
+                 action:p.isPlaying()?'play':'pause',
+                 time:tempoFinal,at:Date.now()});
+    }catch(e){}
+  };
+  barra.addEventListener('pointermove',mover);
+  barra.addEventListener('pointerup',soltar);
+  barra.addEventListener('pointercancel',soltar);
+}
+/* Desenha a posição atual. Chamado pelo mesmo temporizador que já atualiza o
+   tempo, então não cria trabalho extra. */
+function atualizarBarra(uid,t,dur){
+  const f=$('vbf-'+uid), k=$('vbk-'+uid), d=$('vd-'+uid);
+  if(dur>0&&isFinite(dur)){
+    const pct=Math.max(0,Math.min(100,(t/dur)*100));
+    if(f) f.style.width=pct+'%';
+    if(k) k.style.left=pct+'%';
+    if(d) d.textContent=fmtTime(dur);
+  }else{
+    if(f) f.style.width='0%';
+    if(d) d.textContent='';               // ao vivo ou duração desconhecida
+  }
 }
 function vPlay(uid){ const p=ytPlrs[uid]; if(p){desiredPlaying[uid]=true;p.playVideo();broadcast({type:'VID_SYNC',uid_player:uid,action:'play',time:p.getCurrentTime(),at:Date.now()});} }
 function vPause(uid){ const p=ytPlrs[uid]; if(p){desiredPlaying[uid]=false;p.pauseVideo();broadcast({type:'VID_SYNC',uid_player:uid,action:'pause',time:p.getCurrentTime(),at:Date.now()});} }

@@ -203,6 +203,14 @@ function initMusicYT(uid,vid){
   };
   ytPlrs[uid]=proxy; mPlaying[uid]=false; desiredPlaying[uid]=false;
   applyVolumeToPlayer(uid);
+  /* DURAÇÃO INFINITA — corrigido.
+     O YouTube só começa a informar tempo e duração DEPOIS que o player pede para
+     "ouvir" (evento 'listening'). Sem isso ele nunca respondia com a duração, e o
+     tempo total ficava zerado para sempre. Enviamos assim que o quadro carrega e
+     repetimos algumas vezes, porque o pedido feito cedo demais é ignorado. */
+  const pedirInfo=()=>{ try{ ifr.contentWindow.postMessage(JSON.stringify({event:'listening',id:uid}),'*'); }catch(e){} };
+  ifr.addEventListener('load',()=>{ pedirInfo(); setTimeout(pedirInfo,400); setTimeout(pedirInfo,1200); });
+  setTimeout(pedirInfo,800);
   window.addEventListener('message',ev=>{
     if(ev.source!==ifr.contentWindow)return; // sem isso, cards de música diferentes brigavam pelo mesmo estado (disco/ícone/progresso trocados)
     try{
@@ -213,7 +221,9 @@ function initMusicYT(uid,vid){
       }
       if(d.event==='onError'){ toast('Essa música não pôde ser reproduzida (indisponível/bloqueada)','err'); }
       if(!_playing&&d.info?.currentTime!=null)_base=d.info.currentTime;
-      if(d.info?.duration)_dur=d.info.duration;
+      // a duração chega em formatos diferentes conforme a versão do player
+      const dur = d.info?.duration ?? d.info?.videoData?.duration ?? d.duration;
+      if(dur && dur>0) _dur=dur;
     }catch(e){}
   });
   setInterval(()=>{
