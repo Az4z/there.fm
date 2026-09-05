@@ -376,11 +376,22 @@ function autoGrowNode(id){
    ══════════════════════════════════════════════════════════════════ */
 const GAP = 18;   // respiro mínimo entre notas
 
+/* Mede a nota como ela está NA TELA, agora.
+   Era aqui que a colisão falhava: eu usava as medidas guardadas, e notas de
+   texto não têm altura fixa — uma nota com texto longo ocupa 400px enquanto o
+   registro dizia 130. A conta dava "cabe" e a nota nova nascia por cima.
+   Ler o tamanho real resolve. Só acontece ao criar uma nota, então o custo é
+   irrelevante. */
+function medidaReal(id,n){
+  const el=document.getElementById('bn-'+id);
+  if(el && el.offsetWidth>0) return [el.offsetWidth, el.offsetHeight];
+  return [n.w||200, n.h||130];
+}
 function colideComAlguma(x,y,w,h,ignorarId){
   for(const id in boardNodes){
     if(id===ignorarId) continue;
     const n=boardNodes[id]; if(!n) continue;
-    const [nw,nh]=nodeDims(n,id);
+    const [nw,nh]=medidaReal(id,n);
     if(x < (n.x||0)+nw+GAP && x+w+GAP > (n.x||0) &&
        y < (n.y||0)+nh+GAP && y+h+GAP > (n.y||0)) return true;
   }
@@ -388,26 +399,48 @@ function colideComAlguma(x,y,w,h,ignorarId){
 }
 /* Espiral quadrada: anda em anéis cada vez maiores até achar espaço.
    É barato mesmo com muitas notas, porque para no primeiro lugar livre. */
-function acharLugarLivre(w,h){
+function acharLugarLivre(w,h,ignorarId){
   const c=boardViewportCenter();
   let x=Math.round(c.x-w/2), y=Math.round(c.y-h/2);
-  if(!colideComAlguma(x,y,w,h)) return {x,y};
-  const passo=Math.max(w,h)*0.55;
-  for(let anel=1; anel<=14; anel++){
+  if(!colideComAlguma(x,y,w,h,ignorarId)) return {x,y};
+  const passo=Math.max(w,h)*0.75;   // passo maior: notas altas exigem mais espaço
+  for(let anel=1; anel<=22; anel++){
     const r=anel*passo;
     // 8 direções por anel: direita, baixo, esquerda, cima e as diagonais
-    const pontos=[
-      [r,0],[0,r],[-r,0],[0,-r],
-      [r*0.72,r*0.72],[-r*0.72,r*0.72],[r*0.72,-r*0.72],[-r*0.72,-r*0.72]
-    ];
+    const pontos=[];
+    for(let a=0;a<12;a++){                 // 12 direções por anel em vez de 8
+      const ang=(a/12)*Math.PI*2;
+      pontos.push([Math.cos(ang)*r, Math.sin(ang)*r]);
+    }
     for(const [dx,dy] of pontos){
       const nx=Math.round(c.x-w/2+dx), ny=Math.round(c.y-h/2+dy);
       if(nx<0||ny<0||nx+w>BOARD_W||ny+h>BOARD_H) continue;
-      if(!colideComAlguma(nx,ny,w,h)) return {x:nx,y:ny};
+      if(!colideComAlguma(nx,ny,w,h,ignorarId)) return {x:nx,y:ny};
     }
   }
   // quadro muito cheio: desloca um pouco para não sobrepor exatamente
   return { x:x+Math.round(Math.random()*120), y:y+Math.round(Math.random()*120) };
+}
+
+/* Depois que a nota é desenhada, o tamanho REAL aparece — e pode ser bem maior
+   que o reservado (texto longo). Se ela tiver invadido alguma vizinha, movemos
+   para um lugar livre usando o tamanho verdadeiro e salvamos a nova posição.
+   Reservar espaço na criação não basta sozinho: só depois de renderizar dá para
+   saber quanto a nota realmente ocupa. */
+function ajustarSeColidir(id){
+  requestAnimationFrame(()=>{
+    const n=boardNodes[id]; if(!n) return;
+    const [w,h]=medidaReal(id,n);
+    if(!colideComAlguma(n.x,n.y,w,h,id)) return;   // já está bem posicionada
+    const pos=acharLugarLivre(w,h,id);
+    n.x=pos.x; n.y=pos.y;
+    const el=document.getElementById('bn-'+id);
+    if(el) setNodePos(el,pos.x,pos.y);
+    scheduleEdgeRedraw(edgesOfNode(id));
+    const stamp=new Date().toISOString();
+    getSupa().from('board_nodes').update({x:pos.x,y:pos.y,updated_at:stamp}).eq('id',id)
+      .then(({error})=>{ if(!error) _nodeStamp[id]=stamp; });
+  });
 }
 
 /* Cor escolhida antes de criar. Fica guardada entre notas, então dá para criar
@@ -434,11 +467,15 @@ function abrirSeletorCorNota(){
 async function addBoardNote(){
   const supa=getSupa();
   const color = corNotaEscolhida || BOARD_COLORS[Math.floor(Math.random()*BOARD_COLORS.length)];
-  const pos = acharLugarLivre(200,130);      // nasce onde há espaço, sem cobrir outra
+  /* Reserva ESPAÇO PARA CRESCER: a nota nasce com 200x130 mas engorda conforme
+     você escreve. Procurar espaço só para o tamanho inicial fazia a nota
+     invadir as vizinhas assim que o texto aumentava. */
+  const pos = acharLugarLivre(240,300);
   const row={ type:'text', content:'Nova nota', x:pos.x, y:pos.y, w:200, h:130, color, created_by:U.id };
   const { data, error }=await supa.from('board_nodes').insert(row).select().maybeSingle();
   if(error){ console.error('addBoardNote error',error); toast('Erro ao criar nota: '+error.message,'err'); return; }
   boardNodes[data.id]=data; _nodeStamp[data.id]=data.updated_at||data.created_at||''; renderBoardNode(data);
+  ajustarSeColidir(data.id);
   const el=document.getElementById('bn-'+data.id); const body=el?.querySelector('.board-node-body');
   if(body){ body.focus(); const range=document.createRange(); range.selectNodeContents(body); const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }
 }
@@ -463,6 +500,7 @@ async function uploadBoardImage(file){
   const { data, error }=await supa.from('board_nodes').insert(row).select().maybeSingle();
   if(error){ console.error('uploadBoardImage insert error',error); toast('Erro ao adicionar imagem: '+error.message,'err'); return; }
   boardNodes[data.id]=data; _nodeStamp[data.id]=data.updated_at||data.created_at||''; renderBoardNode(data);
+  ajustarSeColidir(data.id);
 }
 
 function saveBoardNodeContent(id,text){
@@ -476,6 +514,7 @@ function saveBoardNodeContent(id,text){
     if(error){ console.error('saveBoardNodeContent error',error); toast('Erro ao salvar nota: '+error.message,'err'); }
     else _nodeStamp[id]=patch.updated_at;
   });
+  ajustarSeColidir(id);   // o texto cresceu: garante que não ficou por cima de outra
 }
 
 /* ── arrastar nó ── */
@@ -639,6 +678,8 @@ function redrawBoardEdges(only){
       hit.setAttribute('class','board-edge-hit'); hit.setAttribute('fill','none');
       hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width','18');
       hit.addEventListener('pointerdown',ev=>{ ev.stopPropagation(); boardSelectedEdge=edge.id; scheduleEdgeRedraw(); });
+      hit.addEventListener('pointerenter',()=>{ if(g&&g.glass) g.glass.classList.add('hover'); });
+      hit.addEventListener('pointerleave',()=>{ if(g&&g.glass) g.glass.classList.remove('hover'); });
       hit.addEventListener('dblclick',ev=>{ ev.stopPropagation(); resetEdgeBend(edge.id); });
       /* Duas camadas formam o efeito de vidro, sem usar desfoque (que é caro):
          uma faixa larga e translúcida por baixo, e o traço colorido por cima.
@@ -678,6 +719,11 @@ function redrawBoardEdges(only){
     if(g.glass) g.glass.setAttribute('d',d);
     g.path.setAttribute('marker-end','url(#boardArrow)');
     g.path.classList.toggle('sel',sel);
+    /* O estado do vidro é marcado AQUI, não por regra de vizinhança no CSS.
+       A camada de vidro é inserida ANTES do traço no desenho, e o seletor de
+       irmão só enxerga elementos posteriores — por isso o realce ao selecionar
+       nunca chegava a aparecer. */
+    if(g.glass) g.glass.classList.toggle('sel',sel);
     // alça aparece ao passar o mouse/selecionar; o ponto da curva em t=0.5
     const hx=0.25*geo.p1.x+0.5*geo.cx+0.25*geo.p2.x, hy=0.25*geo.p1.y+0.5*geo.cy+0.25*geo.p2.y;
     g.handle.setAttribute('cx',hx); g.handle.setAttribute('cy',hy);
