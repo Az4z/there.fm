@@ -1313,3 +1313,9 @@ body.board-digitando .board-zoom{opacity:0;transform:translateY(14px);pointer-ev
 /* traço principal um pouco mais fino, para o vidro aparecer nas bordas */
 .board-edge{stroke-width:2.2}
 .board-edge.sel{stroke-width:3}
+
+/* área de toque da alça: invisível e grande, para o dedo acertar sem precisão.
+   touch-action:none impede que o gesto vire rolagem no meio do arrasto. */
+.board-edge-handle-hit{cursor:grab;touch-action:none;pointer-events:none}
+.board-edge-handle-hit:active{cursor:grabbing}
+.board-edge-del{cursor:pointer;touch-action:none}
