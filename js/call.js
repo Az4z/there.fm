@@ -236,7 +236,12 @@ function callConnectTo(uid,info){
   callParticipants[uid]=Object.assign({muted:false},callParticipants[uid]||{},info||{});
   callPeers[uid]=createCallPeerConnection(uid);
   renderCallParticipant(uid);
-  if(U.id<uid)callMakeOffer(uid); // regra determinística: só o uid "menor" oferece, evita glare
+  /* NÃO enviar oferta aqui. Era este o motivo da chamada não conectar:
+     quando adicionei a renegociação automática (onnegotiationneeded), esta
+     linha continuou existindo — então DUAS ofertas saíam para a mesma conexão
+     quase ao mesmo tempo, uma invalidando a outra, e a negociação nunca
+     terminava. Agora a oferta sai de um lugar só: o próprio navegador avisa
+     quando é hora, ao criar o canal de áudio. */
 }
 async function callMakeOffer(uid,iceRestart){
   const entry=callPeers[uid]; if(!entry)return;

@@ -32,9 +32,21 @@ function enterRoom(){
 async function leaveRoom(){
   if(!await customConfirm('Sair da sala?',{okLabel:'Sair',danger:true}))return;
   if(callActive)endCall();
+  /* Fecha o navegador embutido ANTES de sair. Sem isto ele continuava aberto por
+     cima da tela inicial, com o vídeo tocando sobre o menu — porque a janela do
+     navegador é nativa e não pertence à sala: trocar de tela no aplicativo não a
+     remove sozinha. */
+  await fecharNavegadorSeAberto();
   closeChannel(); stopHB(); room=null; els=[]; ytPlrs={}; peers={};
   $('items').innerHTML=''; $('parts').classList.remove('on');
   goLanding();
+}
+/* Fecha o navegador embutido, se existir. Silencioso e seguro: no site (sem o
+   aplicativo) simplesmente não faz nada. */
+async function fecharNavegadorSeAberto(){
+  try{
+    if(typeof fecharTheaterLocal==='function') await fecharTheaterLocal();
+  }catch(e){ console.warn('fecharNavegadorSeAberto',e); }
 }
 function copyCode(){ if(!room)return; navigator.clipboard.writeText(room.code).then(()=>toast('Código copiado','ok')).catch(()=>toast('Erro','err')); }
 
@@ -345,9 +357,15 @@ function reopenChannelKeepingState(code){
       clearTimeout(_reconnectTimer); _reconnectTimer=null;
       announceSelf();
       broadcast({type:'REQ_STATE',uid:U.id});
-      peers={};
-      document.querySelectorAll('.av-wrap[data-uid]').forEach(el=>{ if(el.dataset.uid!==U.id) el.remove(); });
-      document.querySelectorAll('.pi[data-uid]').forEach(el=>{ if(el.dataset.uid!==U.id) el.remove(); });
+      /* NÃO apagamos mais os avatares ao reconectar.
+         Antes eu limpava a lista inteira de participantes e removia os avatares,
+         esperando que todos se reanunciassem. Só que quem ainda estava conectado
+         não tinha por que se reanunciar na hora — então as pessoas sumiam da
+         sala por vários segundos, ou de vez. Agora deixamos os avatares no lugar:
+         quem realmente saiu já é removido pelo tempo de silêncio do heartbeat,
+         e quem continua ali segue aparecendo sem piscar. */
+      const agora=Date.now();
+      Object.keys(peers).forEach(uid=>{ if(peers[uid]) peers[uid].ts=agora; });
       if(callActive) recoverCallAfterReconnect();
       if(_caiuDeVerdade){ toast('Reconectado','ok'); _caiuDeVerdade=false; }
     }
@@ -394,10 +412,24 @@ function initNetworkRecovery(){
   });
   document.addEventListener('visibilitychange',()=>{
     if(document.hidden||!room) return;
-    // Ao voltar pro app, confere se o canal ainda está de pé. Em celular o sistema
-    // costuma matar conexões em segundo plano sem avisar o JavaScript.
-    const st=_ch && _ch.state;
-    if(st!=='joined') scheduleReconnect();
+    /* BUG CORRIGIDO — era daqui que vinham os "erros de conexão" com o wi-fi bom
+       e os avatares sumindo dos dois lados.
+       Eu comparava o estado do canal com o texto exato 'joined'. Se essa
+       propriedade não existir ou tiver outro nome, a comparação falha SEMPRE —
+       e o app disparava uma reconexão a cada vez que você voltava para a aba,
+       mesmo com tudo funcionando. Reconectar limpa a lista de participantes,
+       então os avatares desapareciam sem motivo.
+       Agora só reconectamos quando dá para AFIRMAR que o canal caiu; na dúvida,
+       apenas nos reapresentamos, que é inofensivo. */
+    let caiu=false;
+    try{
+      const st=_ch && _ch.state;
+      if(typeof st==='string'){
+        const s=st.toLowerCase();
+        caiu = (s==='closed' || s==='errored' || s==='leaving');
+      }
+    }catch(e){}
+    if(caiu) scheduleReconnect();
     else announceSelf();             // avisa que continuo aqui, caso tenham me removido
   });
 }

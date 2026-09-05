@@ -88,12 +88,31 @@ function beginIA(target,cx,cy){
 }
 function startCap(cur){ const c=$('capture'); c.style.cursor=cur; c.classList.add('on'); document.body.style.userSelect='none'; }
 function stopCap(){ const c=$('capture'); c.classList.remove('on'); c.style.cursor=''; document.body.style.userSelect=''; }
+let _ultimoMoveAv=0, _moveAvFinal=null;
 function move(cx,cy){
   const cw=$('cw');
   if(D){
     let x=cx-D.ox,y=cy-D.oy; x=Math.max(0,Math.min(x,cw.clientWidth-(D.el.offsetWidth||50))); y=Math.max(0,Math.min(y,cw.clientHeight-(D.el.offsetHeight||50)));
     px=x; py=y; if(!raf)raf=requestAnimationFrame(()=>{D.el.style.left=px+'px';D.el.style.top=py+'px';raf=null;});
-    if(D.type==='av')broadcast({type:'MOVE_AV',uid:U.id,x:Math.round(px),y:Math.round(py)});
+    /* CORRIGIDO — causa de "erro de conexão com o wi-fi bom".
+       Antes cada movimento do dedo enviava uma mensagem: dezenas por segundo
+       durante um arrasto. Isso estoura o limite de mensagens do servidor, que
+       responde derrubando o canal — daí os erros de conexão do nada e os
+       avatares sumindo. Agora enviamos no máximo 10 posições por segundo, o que
+       é suficiente para o movimento parecer contínuo do outro lado. */
+    if(D.type==='av'){
+      const agora=Date.now();
+      if(agora-_ultimoMoveAv>100){
+        _ultimoMoveAv=agora;
+        broadcast({type:'MOVE_AV',uid:U.id,x:Math.round(px),y:Math.round(py)});
+      }else{
+        clearTimeout(_moveAvFinal);   // garante que a posição final sempre chegue
+        _moveAvFinal=setTimeout(()=>{
+          _ultimoMoveAv=Date.now();
+          broadcast({type:'MOVE_AV',uid:U.id,x:Math.round(px),y:Math.round(py)});
+        },110);
+      }
+    }
     return;
   }
   if(R){

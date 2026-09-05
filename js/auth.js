@@ -7,6 +7,15 @@ function setScene(id){
   // marca no <body> qual cena está ativa — usado pelo CSS pra mostrar/ocultar
   // elementos fixos (ex.: o controle de volume só existe dentro da sala)
   document.body.classList.toggle('in-room',id==='roomScene');
+
+  /* REDE DE SEGURANÇA: a janela do navegador embutido é NATIVA, fica por cima de
+     tudo e não some ao trocar de tela no aplicativo. Sair da sala pelo botão já
+     a fecha, mas existem outros caminhos (sessão expirada, sair da conta, voltar
+     pelo botão do aparelho). Aqui garantimos que, ao deixar a sala por QUALQUER
+     motivo, ela seja fechada — senão o vídeo fica tocando por cima do menu. */
+  if(id!=='roomScene'){
+    try{ if(typeof fecharTheaterLocal==='function') fecharTheaterLocal(); }catch(e){}
+  }
 }
 function toSignup(){ $('loginForm').style.display='none'; $('signupForm').style.display='flex'; }
 function toLogin(){ $('signupForm').style.display='none'; $('loginForm').style.display='flex'; }
