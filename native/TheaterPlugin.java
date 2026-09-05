@@ -508,6 +508,12 @@ public class TheaterPlugin extends Plugin {
 
         root.addView(col, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        /* NASCE ESCONDIDA — era esta a causa do navegador "piscar" ao abrir o app.
+           A janela era adicionada à tela visível por padrão e só depois algum
+           código a escondia; nesse intervalo de um quadro ela aparecia inteira.
+           Definindo GONE antes de entrar na tela, ela nunca chega a ser
+           desenhada até você abrir de fato. */
+        root.setVisibility(View.GONE);
         parent.addView(root, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
