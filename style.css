@@ -1202,3 +1202,48 @@ body.in-room .vol-wrap{display:flex}
 /* área de toque maior no botão de "a seguir" */
 .vc-big{width:34px;height:32px;position:relative}
 .vc-big::after{content:'';position:absolute;inset:-8px}
+
+/* ── SELETOR DE COR DA NOTA ───────────────────── */
+.nota-wrap{position:relative;display:inline-flex}
+.nota-cores{position:absolute;top:calc(100% + .45rem);left:0;z-index:40;
+  display:none;gap:.3rem;padding:.45rem;border-radius:var(--r);
+  background:rgba(12,18,15,.97);backdrop-filter:var(--blur);
+  border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 28px rgba(0,0,0,.55)}
+.nota-cores.on{display:flex;animation:popIn .18s var(--ease)}
+.nota-cores i{width:24px;height:24px;border-radius:7px;cursor:pointer;flex-shrink:0;
+  border:2px solid transparent;transition:transform .13s var(--ease),border-color .13s;
+  display:flex;align-items:center;justify-content:center;font-size:.7rem;
+  font-style:normal;color:rgba(0,0,0,.5);font-weight:700}
+.nota-cores i:hover{transform:scale(1.15)}
+.nota-cores i.on{border-color:#fff}
+.nota-cor-aleatoria{background:linear-gradient(135deg,#f5d78a,#a8e6b0,#a8d4f5,#f5a8c8)}
+
+/* ── NOTAS: contorno glass discreto ───────────────────── */
+/* O brilho fica numa camada própria (::after) em vez de sombra no card:
+   sombras coloridas custam caro para repintar quando há muitas notas. */
+.board-node::after{content:'';position:absolute;inset:0;border-radius:12px;pointer-events:none;
+  padding:1px;
+  background:linear-gradient(140deg,
+    rgba(255,255,255,.42), rgba(180,220,255,.16) 28%,
+    rgba(255,190,230,.14) 52%, rgba(190,255,220,.16) 74%, rgba(255,255,255,.32));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  opacity:.55;transition:opacity .2s}
+.board-node:hover::after{opacity:.9}
+.board-node.dragging::after,.board-node.resizing::after{opacity:1}
+.board-node.connect-sel::after{opacity:1;
+  background:linear-gradient(140deg,var(--green),rgba(120,235,170,.35),var(--green))}
+
+/* ── CONECTORES ───────────────────── */
+.board-edge{stroke-width:2.6}
+.board-edge.sel{stroke-width:3.6}
+/* alça de curvatura mais visível e fácil de pegar */
+.board-edge-handle{r:8;fill:rgba(10,20,14,.92);stroke:rgba(150,255,195,.95);stroke-width:2.4}
+.board-edge-handle.show{opacity:1}
+.board-edge-handle:hover{fill:rgba(120,235,170,.4)}
+
+/* ícone da caixa de mensagens da sala (nuvem) — diferencia do botão de
+   conversas privadas, que usa o balão */
+.logbtn .log-ico{font-size:15px;line-height:1;display:block;
+  transform:translateY(-1px);transition:transform .18s var(--ease),color .18s}
+.logbtn:hover .log-ico{transform:translateY(-2px) scale(1.06)}
