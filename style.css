@@ -431,7 +431,13 @@ body.light .cw::before{background:rgba(200,232,220,.12);backdrop-filter:none}
 .board-edge-handle:hover{fill:rgba(120,235,170,.35)}
 .board-edge-handle:active{cursor:grabbing}
 .board-edge-del{cursor:pointer}
-.board-zoom{position:absolute;right:.85rem;bottom:.85rem;display:flex;align-items:center;gap:.25rem;background:rgba(10,14,12,.92);backdrop-filter:var(--blur);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:.25rem;z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+/* Ancorado à JANELA, não à área do quadro.
+   Antes ele ficava preso ao fundo do quadro; quando o teclado abre, essa área
+   encolhe e o controle era arrastado para o meio da tela junto com ela.
+   Preso à janela e respeitando a área segura do aparelho, ele fica sempre no
+   canto — e some enquanto você digita, para não atrapalhar. */
+.board-zoom{position:fixed;right:.85rem;bottom:calc(.85rem + env(safe-area-inset-bottom,0px));
+  transition:opacity .18s,transform .18s;display:flex;align-items:center;gap:.25rem;background:rgba(10,14,12,.92);backdrop-filter:var(--blur);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:.25rem;z-index:5;box-shadow:0 6px 20px rgba(0,0,0,.5)}
 .bz-btn{width:28px;height:28px;border-radius:50%;border:none;background:transparent;color:var(--bone);font-size:1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
 .bz-btn:hover{background:rgba(255,255,255,.1)}
 .bz-lbl{font-size:.68rem;color:var(--ash);min-width:44px;text-align:center;cursor:pointer;user-select:none;font-variant-numeric:tabular-nums}
@@ -1162,16 +1168,22 @@ body.board-open .main-more{display:none!important}
 .rl-vazio{font-size:.75rem;color:var(--dust);text-align:center;padding:1.6rem .5rem;font-style:italic}
 
 /* ── ABA DO VOLUME (seta recolhível) ───────────────────── */
+/* A aba fica SEMPRE colada na borda da tela.
+   Antes a barra usava position:static e continuava ocupando espaço no layout
+   mesmo recolhida — como a caixa está ancorada à direita, a aba era empurrada
+   para a esquerda pela largura da barra invisível, e parecia "presa" onde o
+   volume terminava. Agora a barra é posicionada por cima (absolute), fora do
+   fluxo, e desliza a partir de trás da aba. */
 .vol-wrap{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:60;
   display:none;align-items:center}
 body.in-room .vol-wrap{display:flex}
-/* a barra desliza para fora da tela quando recolhida */
-.vol-wrap .vol-bar{position:static;transform:none;right:auto;top:auto;
-  transition:transform .34s cubic-bezier(.34,1.3,.64,1),opacity .24s;
-  transform:translateX(calc(100% + 1rem));opacity:0;pointer-events:none;margin-right:.55rem}
-.vol-wrap.on .vol-bar{transform:translateX(0);opacity:1;pointer-events:auto}
-/* aba fina, sempre acessível */
-.vol-tab{order:-1;width:26px;height:58px;flex-shrink:0;cursor:pointer;
+/* a barra sai da direita, por trás da aba, sem ocupar espaço no layout */
+.vol-wrap .vol-bar{position:absolute;right:calc(100% + .5rem);top:50%;
+  margin:0;transform:translate(calc(100% + 3rem),-50%);opacity:0;pointer-events:none;
+  transition:transform .34s cubic-bezier(.34,1.3,.64,1),opacity .22s}
+.vol-wrap.on .vol-bar{transform:translate(0,-50%);opacity:1;pointer-events:auto}
+/* aba fina, sempre acessível na borda */
+.vol-tab{position:relative;width:26px;height:58px;flex-shrink:0;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   background:rgba(8,14,11,.92);backdrop-filter:var(--blur);color:var(--ash);
   border:1px solid rgba(255,255,255,.09);border-right:none;
@@ -1286,3 +1298,13 @@ body.in-room .vol-wrap{display:flex}
 .ecl-corona{transition:opacity .28s linear .06s,transform .34s cubic-bezier(.34,1.4,.64,1) .06s}
 /* o brilho do selecionado deixa de ser sombra animada (cara) e vira opacidade */
 .theme-opt.on::after{animation:none;opacity:1}
+
+/* enquanto escreve numa nota, o controle de zoom sai do caminho */
+body.board-digitando .board-zoom{opacity:0;transform:translateY(14px);pointer-events:none}
+
+/* contorno de vidro dos conectores: faixa larga e translúcida por baixo do traço */
+.board-edge-glass{stroke-width:7;opacity:.5;transition:opacity .14s,stroke-width .14s;
+  pointer-events:none}
+.board-edge-hit:hover ~ .board-edge-glass{opacity:.85;stroke-width:9}
+.board-edge.sel ~ .board-edge-glass,
+.board-edge-glass.sel{opacity:.9;stroke-width:10}
