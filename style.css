@@ -1247,3 +1247,42 @@ body.in-room .vol-wrap{display:flex}
 .logbtn .log-ico{font-size:15px;line-height:1;display:block;
   transform:translateY(-1px);transition:transform .18s var(--ease),color .18s}
 .logbtn:hover .log-ico{transform:translateY(-2px) scale(1.06)}
+
+/* ── TAMANHO DA INTERFACE ───────────────────── */
+.escala-box{display:flex;flex-direction:column;gap:.5rem}
+.escala-linha{display:flex;align-items:center;gap:.7rem}
+.escala-lbl{color:var(--dust);font-family:'Cinzel',serif;line-height:1;user-select:none;flex-shrink:0}
+.escala-min{font-size:.68rem}
+.escala-max{font-size:1.15rem}
+.escala-trilho{position:relative;flex:1;height:22px;cursor:pointer;touch-action:none;
+  display:flex;align-items:center}
+.escala-trilho::before{content:'';position:absolute;left:0;right:0;height:4px;border-radius:100px;
+  background:rgba(255,255,255,.1)}
+.escala-fill{position:relative;height:4px;border-radius:100px;width:50%;
+  background:linear-gradient(90deg,rgba(120,235,170,.55),var(--green));
+  box-shadow:0 0 10px rgba(120,235,170,.35)}
+.escala-knob{position:absolute;top:50%;left:50%;width:16px;height:16px;border-radius:50%;
+  transform:translate(-50%,-50%);background:#eafff2;
+  box-shadow:0 0 0 1px rgba(120,235,170,.6),0 2px 8px rgba(0,0,0,.45);
+  transition:transform .14s var(--ease)}
+.escala-trilho:active .escala-knob{transform:translate(-50%,-50%) scale(1.22)}
+.escala-rodape{display:flex;align-items:center;justify-content:space-between}
+.escala-valor{font-size:.72rem;color:var(--ash);font-variant-numeric:tabular-nums}
+
+/* ── MOTION DO TEMA: mais leve ───────────────────── */
+/* As animações antigas mexiam em cor, sombra e fundo ao mesmo tempo — tudo isso
+   obriga o navegador a repintar. Aqui só transform e opacity são animados, que
+   são compostos pela GPU. O resultado é a mesma leitura visual, sem engasgo. */
+.theme-glide{transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.theme-opt{transition:color .2s linear}
+.theme-opt,.theme-glide,.ti,.ti-sun,.ti-moon,.ti-ecl{will-change:auto}
+.theme-seg:hover .theme-glide{will-change:transform}
+.ti-moon{transition:transform .32s cubic-bezier(.34,1.4,.64,1)}
+.ti-star{transition:opacity .26s linear,transform .3s cubic-bezier(.34,1.4,.64,1)}
+.ti-sun{transition:transform .34s cubic-bezier(.34,1.4,.64,1),opacity .26s linear}
+.ti-rays{transition:transform .36s cubic-bezier(.34,1.4,.64,1) .04s,opacity .26s linear .04s}
+.ti-horizon{transition:opacity .24s linear,transform .3s cubic-bezier(.4,0,.2,1)}
+.ecl-shadow{transition:transform .38s cubic-bezier(.4,0,.2,1)}
+.ecl-corona{transition:opacity .28s linear .06s,transform .34s cubic-bezier(.34,1.4,.64,1) .06s}
+/* o brilho do selecionado deixa de ser sombra animada (cara) e vira opacidade */
+.theme-opt.on::after{animation:none;opacity:1}
